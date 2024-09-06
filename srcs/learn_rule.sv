@@ -4,9 +4,7 @@ module learn_rule #(
     parameter Eta_W             = 40'h 4CCCCCCC, // learning rate
     parameter dt                = 40'h 68DB8,                                                         
     parameter INTEGER_BITS      = 8,
-    parameter FRACTIONAL_BITS   = 32,
-    parameter A_ROWS            = 1,
-    parameter B_COLS            = 1
+    parameter FRACTIONAL_BITS   = 32
 ) (
     input   logic                                                clk,
     input   logic                                                reset,
@@ -20,10 +18,11 @@ module learn_rule #(
     output  logic                                                done
 );
 
-    logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0]  mult_result, eta_dt, o_spike_f_dec, dec_err0, dec_err1, dec_err;
     integer i;
-    logic [5:0] index;
     logic overflow;
+    logic [5:0] index;
+    logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0]  mult_result, eta_dt, o_spike_f_dec, dec_err0, dec_err1, dec_err;
+
     assign dec_err = dec_err0 + dec_err1;
 
     always_ff @(posedge clk or posedge reset) begin

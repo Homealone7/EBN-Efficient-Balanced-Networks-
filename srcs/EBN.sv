@@ -11,7 +11,7 @@ module EBN #(
     parameter Three             = 40'h300000000,
     parameter Eta_W             = 40'h 4CCCCCCC, //learning rate
     parameter dt                = 40'h 68DB8,
-    parameter learn             = 100,
+    parameter learn_thresh      = 1006,
     parameter learn_flg         = 1,
     parameter INTEGER_BITS      = 8,
     parameter FRACTIONAL_BITS   = 32,
@@ -23,32 +23,25 @@ module EBN #(
     input   logic                                                 start_neuron,
     input   logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0]  i_dec      [Dims * N],
     input   logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0]  i_wf       [N * N],
-    input   logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0]  pot_thr    [N],
+    input   logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0]  pot_thresh [N],
     input   logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0]  randn      [N],
     output  logic                                                 done
 );
 
     integer i;
-    logic wait_spike, next_synaptic, start_ws, learn_en, done_neuron, done_synaptic, done_dyn;
-    logic done_lif_AU, done_spike_f, done_spike_f_buff, spike_flg, start_spike_f, buff, buff_2, start_spike_filter;                                                 
+    logic wait_spike, learn_en, done_neuron, done_synaptic, done_dyn;
+    logic done_lif_AU, done_spike_f, done_spike_f_buff, spike_flg, start_spike_f;                                                 
     logic [5:0] spike_pos;
-    logic [11:0] wf_index;
-    logic [6:0] spike_f_counter, l;
-    logic signed [INTEGER_BITS + FRACTIONAL_BITS - 1:0] o_ws[N], i_wf_tmp[N], o_spike[N], o_spike_f[N], old_spike_f_data[N], i_cmd [Dims], old_cmd[Dims], o_err[Dims], old_err[Dims];
-    logic signed [INTEGER_BITS + FRACTIONAL_BITS - 1:0] spike_f_data[N];
+    logic [11:0] wf_index, delay_counter;
+    logic signed [INTEGER_BITS + FRACTIONAL_BITS - 1:0] o_ws[N], i_wf_tmp[N], o_spike_f[N], i_cmd [Dims], old_cmd[Dims], o_err[Dims], old_err[Dims];
+    logic signed [INTEGER_BITS + FRACTIONAL_BITS - 1:0] spike_f_data[N], old_spike_f_data[N];
 
     always_ff @(posedge clk or posedge reset) begin 
         if (reset) begin
             done <= 0;
-            buff <= 0;
-            buff_2 <= 0;
-            start_spike_filter <= 0;
         end
         else begin
-            buff <= start_spike_f;
-            buff_2 <= buff;
-            start_spike_filter <= buff_2;
-            if (done_spike_f) begin
+            if (done_dyn) begin
                 done <= 1;
             end
             else done <= 0;
@@ -58,7 +51,6 @@ module EBN #(
     always_ff @(posedge clk or posedge reset) begin 
         if (reset) begin
             wf_index <= 64;
-            l <= 0;
             i_wf_tmp <= i_wf[0:63];
             i_cmd[0] <= 0;
             i_cmd[1] <= 0;
@@ -88,6 +80,22 @@ module EBN #(
         end
     end
 
+    controller #(
+        .N(N),
+        .learn_thresh(learn_thresh), 
+        .learn_flg(learn_flg) 
+    ) controller_inst (
+        .clk(clk),                              
+        .reset(reset),
+        .next_synaptic_update(next),          // Signal from the neuron core indicating next synaptic update
+        .neuron_processing_done(done_lif_AU), // Signal from neuron core indicating neuron processing is complete
+        .done_spike(done_spike),              // Signal from neuron core indicating spike processing is complete
+        .learn_en(learn_en),                  // Output signal enabling learning
+        .start_spike_filter(start_spike_f),   // Start signal for spike filtering
+        .wait_spike(wait_spike),              // Output signal indicating the system is waiting for spikes Output
+        .delay_counter(delay_counter)
+    );
+
     neuron_core #(
         .N(N),
         .Dims(Dims),
@@ -105,21 +113,20 @@ module EBN #(
         .clk(clk),
         .reset(reset),
         .start(start_neuron),
+        .wait_spike(wait_spike),
         .i_dec(i_dec),
         .i_cmd(i_cmd),
         .i_err(o_err),
         .i_wf(i_wf_tmp),
         .i_ws(o_ws),
         .i_spike_f(spike_f_data),
-        .pot_thr(pot_thr),
+        .pot_thresh(pot_thresh),
         .randn(randn),
-        .o_spike(o_spike),
         .spike_pos(spike_pos),
-        .spike_flg(spike_flg), 
-        .next_synaptic(next_synaptic),
-        .start_ws(start_ws),
-        .wait_spike(wait_spike),
-        .start_spike_f(start_spike_f),
+        .spike_flg(spike_flg),
+        .next(next),
+        .done_lif_AU(done_lif_AU),
+        .done_spike(done_spike),
         .done(done_neuron)
     );
 
@@ -128,25 +135,18 @@ module EBN #(
         .Dims(Dims),
         .Eta_W(Eta_W),
         .dt(dt),
-        .learn(learn),
+        .learn_thresh(learn_thresh),
         .learn_flg(learn_flg),
         .INTEGER_BITS(INTEGER_BITS),
-        .FRACTIONAL_BITS(FRACTIONAL_BITS),
-        .A_ROWS(A_ROWS),
-        .B_COLS(B_COLS)
+        .FRACTIONAL_BITS(FRACTIONAL_BITS)
     )synaptic_core(
         .clk(clk),
         .reset(reset),
-        .start_ct(start_ws),
+        .delay_counter(delay_counter),
         .i_dec(i_dec),
         .i_err(old_err),    
         .i_spike_f(old_spike_f_data),     
         .o_ws(o_ws),
-        .next(next_synaptic),
-        .wait_spike(wait_spike),
-        .start_count(Neuron.done_spike),
-        .spike_f_counter(Neuron.spike_f_counter),
-        .done_lif_AU(Neuron.done_lif_AU),
         .learn_en(learn_en),     
         .done(done_synaptic)
     );

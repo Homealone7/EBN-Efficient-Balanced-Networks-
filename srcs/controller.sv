@@ -1,116 +1,141 @@
 module controller #(
-    parameter N = 64
+    parameter N             = 64,
+    parameter learn_thresh  = 1006,   // Threshold for enabling learning
+    parameter learn_flg     = 1       // Flag to enable or disable learning
 )(
-    input logic        clk,
-    input logic        reset,
-    input logic        start,         // Start signal for the controller
-    input logic        done_lif_AU,   // Done signal from lif_AU in neuron_core
-    input logic        done_spike,    // Done signal when a spike occurs
-    input logic        done_synaptic, // Done signal from synaptic_core
-    output logic       next_synaptic, // Control signal to synaptic_core
-    output logic       start_ws,      // Start signal for synaptic_core weight updates
-    output logic       wait_spike,    // Wait signal for spikes
-    output logic       start_spike_f, // Start signal for spike filter
-    output logic       done,          // Overall done signal
-    output logic [11:0] read_addr,    // Address to read synaptic weights
-    output logic [11:0] write_addr,   // Address to write synaptic weights
-    output logic       learn_en       // Enable learning process
+    input logic         clk,
+    input logic         reset,
+    input logic         next_synaptic_update,   // Signal to start the next synaptic update
+    input logic         neuron_processing_done, // Done signal from LIF in neuron_core
+    input logic         done_spike,             // Done signal from spike processing
+    output logic        learn_en,               // Enable learning process       
+    output logic        start_spike_filter,     // Start signal for spike filtering
+    output logic        wait_spike,             // Signal indicating wait for spike output
+    output logic [11:0] delay_counter           // Delay counter to synchronize synaptic logic
 );
 
-    // Internal signals for control logic
-    logic [6:0] spike_counter;
-    logic [11:0] test_count;
-    logic [1:0] wait_counter;
+    // Internal signals
+    logic [6:0] synaptic_update_counter;      // Synaptic weight update counter
+    logic [31:0] learning_cycle_counter;      // Learning counter
+    logic [1:0] sync_wait_counter;            // Wait counter for delay             
+    logic [6:0] spike_filter_counter;         // Spike filter counter
+    logic buff;                               // Buffer for spike filtering start signal
+    logic start_learning_counter;             // Internal signal to start learning counter
 
-    // Manage next_synaptic signal
-    always_ff @(posedge clk or posedge reset) begin
-        if (reset)
-            next_synaptic <= 0;
-        else
-            next_synaptic <= done_lif_AU;
-    end
+    // Enable learning if the counter exceeds the threshold and learn_flg is set
+    assign learn_en = (reset) ? 1'b0 : ((learning_cycle_counter > learn_thresh) && learn_flg) ? 1'b1 : 1'b0;
 
-    // Generate wait_spike signal
-    always_ff @(posedge clk or posedge reset) begin
-        if (reset)
-            wait_spike <= 0;
-        else if (done_spike)
-            wait_spike <= 0;
-        else if (spike_counter == N - 1)
-            wait_spike <= 1;
-    end
-
-    // Start weight updates in synaptic_core
+    // Manage the learning counter start (internal start_learning_counter)
     always_ff @(posedge clk or posedge reset) begin
         if (reset) begin
-            spike_counter <= 0;
-            start_ws <= 0;
-        end else begin
-            if (next_synaptic) begin
-                if (spike_counter >= N - 1)
-                    spike_counter <= 0;
-                else
-                    spike_counter <= spike_counter + 1;
+            synaptic_update_counter <= 0;
+            start_learning_counter  <= 0;
+        end
+        else begin
+            if (next_synaptic_update) begin
+                if (synaptic_update_counter == N - 2) begin              
+                    start_learning_counter <= 1;   // Signal to start the learning counter
+                end
+                if (synaptic_update_counter >= N - 1) begin
+                    synaptic_update_counter <= 0;  // Reset the counter
+                end
+                else begin
+                    synaptic_update_counter <= synaptic_update_counter + 1;  // Increment the counter
+                end
+            end
+            else begin
+                start_learning_counter <= 0;   // Keep the signal low when not active
+            end
+        end             
+    end
 
-                if (spike_counter == N - 2)
-                    start_ws <= 1;
-                else
-                    start_ws <= 0;
+    // Manage learning enable logic (learn_en)
+    always_ff @(posedge clk or posedge reset) begin
+        if (reset) begin
+            learning_cycle_counter <= 0;
+        end
+        else if (start_learning_counter) begin
+            learning_cycle_counter <= learning_cycle_counter + 1;   // Increment the learning counter
+        end
+    end
+
+    // Delay counter logic for synchronizing synaptic logic
+    always_ff @(posedge clk or posedge reset) begin
+        if (reset) begin
+            sync_wait_counter <= 0;
+            delay_counter     <= 0;
+        end 
+        else begin
+            if (neuron_processing_done && spike_filter_counter == N - 2) begin
+                sync_wait_counter <= 2;
+                delay_counter     <= 0;
+            end 
+            else if (sync_wait_counter > 0) begin
+                sync_wait_counter <= sync_wait_counter - 1;
+                delay_counter     <= 0;
+            end
+            else begin
+                if (done_spike && spike_filter_counter == 0) begin
+                    sync_wait_counter <= 1;
+                    delay_counter     <= 0;
+                end 
+                else if (sync_wait_counter > 0) begin
+                    sync_wait_counter <= sync_wait_counter - 1;
+                    delay_counter     <= 0;
+                end 
+                else begin
+                    if (delay_counter >= N + 1) begin
+                        delay_counter <= 0;
+                    end 
+                    else begin
+                        if (learn_en) begin
+                            delay_counter <= delay_counter + 1;  // Increment delay counter when learning is enabled
+                        end
+                    end
+                end
             end
         end
     end
 
-    // Control start_spike_f signal
-    always_ff @(posedge clk or posedge reset) begin
-        if (reset)
-            start_spike_f <= 0;
-        else if (done_lif_AU)
-            start_spike_f <= (spike_counter == N - 2);
-    end
-
-    // Manage test_count for learning and weight updates
+    // Manage start_spike_filter signal (spike filter logic)
     always_ff @(posedge clk or posedge reset) begin
         if (reset) begin
-            test_count <= 0;
-            wait_counter <= 0;
-        end else if (done_lif_AU && spike_counter == N - 2) begin
-            wait_counter <= 2;
-            test_count <= 0;
-        end else if (wait_counter > 0) begin
-            wait_counter <= wait_counter - 1;
-        end else if (done_spike && spike_counter == 0) begin
-            wait_counter <= 1;
-        end else if (wait_counter > 0) begin
-            wait_counter <= wait_counter - 1;
-        end else if (test_count >= N + 1) begin
-            test_count <= 0;
-        end else if (learn_en) begin
-            test_count <= test_count + 1;
+            start_spike_filter <= 0;
+            spike_filter_counter <= 0;
+            buff          <= 0;
+        end 
+        else begin
+            buff <= neuron_processing_done;  // Buffering the neuron_processing_done signal
+            if (buff) begin
+                if (spike_filter_counter == N - 2) begin              
+                    start_spike_filter <= 1;  // Trigger spike filter start
+                end
+                if (spike_filter_counter >= N - 1) begin
+                    spike_filter_counter <= 0;  // Reset the spike filter counter
+                end 
+                else begin
+                    spike_filter_counter <= spike_filter_counter + 1;  // Increment the spike filter counter
+                end
+            end 
+            else begin
+                start_spike_filter <= 0;  // Disable spike filter start when not needed
+            end
         end
     end
 
-    // Generate learning enable signal
-    logic [31:0] learn_counter;
+    // Manage wait_spike signal (Wait for spike output)
     always_ff @(posedge clk or posedge reset) begin
         if (reset) begin
-            learn_counter <= 0;
-        end else if (start_ws) begin
-            learn_counter <= learn_counter + 1;
+            wait_spike <= 0;
         end
-    end
-
-    assign learn_en = (reset) ? 1'b0 : ((learn_counter > 100) && (start_ws)) ? 1'b1 : 1'b0;
-    assign read_addr = test_count;
-    assign write_addr = test_count;
-
-    // Manage done signal for the overall process
-    always_ff @(posedge clk or posedge reset) begin
-        if (reset)
-            done <= 0;
-        else if (done_spike)
-            done <= 1;
-        else
-            done <= 0;
+        else begin
+            if (done_spike) begin
+                wait_spike <= 0;  // No longer wait once spike is done
+            end
+            else if (spike_filter_counter == N - 1) begin
+                wait_spike <= 1;  // Set to wait for spikes when spike filter processing is ongoing
+            end
+        end 
     end
 
 endmodule

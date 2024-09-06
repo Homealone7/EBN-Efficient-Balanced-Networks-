@@ -7,7 +7,7 @@ module spike_out #(
     input   logic                                                reset,
     input   logic                                                start,
     input   logic         [5:0]                                  index,
-    input   logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] pot_thr_diff,
+    input   logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] pot_thresh_diff,
     output  logic                                                spike_flg, // Spike happened if = 1;
     output  logic         [5:0]                                  spike_pos,
     output  logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] o_spike[N], // Spikes
@@ -29,8 +29,8 @@ module spike_out #(
             end
         end
         else begin
-            if(pot_thr_diff > max_pot) begin
-                max_pot <= pot_thr_diff;
+            if(pot_thresh_diff > max_pot) begin
+                max_pot <= pot_thresh_diff;
                 max_pos <= index;
             end
             if(start) begin   

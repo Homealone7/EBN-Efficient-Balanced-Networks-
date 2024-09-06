@@ -16,7 +16,6 @@ module lif_AU #(
     input   logic                                                reset,
     input   logic                                                start,
     input   logic                                                wait_spike,
-    input   logic                                                done_spike,
     input   logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_pot,                  // membrane potential state from  mem
     input   logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_dec_t     [Dims],     // Transposed Decoder
     input   logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_cmd       [Dims],     // Commands
@@ -33,13 +32,11 @@ module lif_AU #(
 
     logic done_dec_cmd, done_dec_err, done_wf_spike, done_ws_spike_f, next_dec, start_dec, start_w;
     
-    logic signed [INTEGER_BITS + FRACTIONAL_BITS -1:0] test, leak_str, pot_leak, v_out, o_dec_cmd[A_ROWS], o_dec_err[A_ROWS], o_ws_spike_f[A_ROWS], o_wf_spike[A_ROWS]; 
+    logic signed [INTEGER_BITS + FRACTIONAL_BITS -1:0] leak_str, pot_leak, o_dec_cmd[A_ROWS], o_dec_err[A_ROWS], o_ws_spike_f[A_ROWS], o_wf_spike[A_ROWS]; 
     logic signed [INTEGER_BITS + FRACTIONAL_BITS -1:0] lambdaV_dt, ws_spike_f_dt, dec_err_k, noise, Gain_D_sqr, noise_randn;
 
     assign leak_str = One - lambdaV_dt;
-    assign test = o_dec_cmd[0] + o_wf_spike[0] + ws_spike_f_dt + dec_err_k;
-    assign v_out =  o_dec_cmd[0] + o_wf_spike[0] + ws_spike_f_dt + dec_err_k + noise_randn;
-    assign o_pot = (reset)? 0 : pot_leak + o_dec_cmd[0] + o_wf_spike[0] + ws_spike_f_dt + dec_err_k + noise_randn;
+    assign o_pot = pot_leak + o_dec_cmd[0] + o_wf_spike[0] + ws_spike_f_dt + dec_err_k + noise_randn;
     assign done = done_ws_spike_f;
 
     

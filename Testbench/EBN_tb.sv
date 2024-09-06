@@ -12,7 +12,7 @@ module EBN_tb;
     parameter Three             = 40'h 300000000;
     parameter Eta_W             = 40'h 4CCCCCCC; //learning rate
     parameter dt                = 40'h 68DB8;
-    parameter learn             = 1006;
+    parameter learn_thresh             = 1006;
     parameter learn_flg         = 1;
     parameter INTEGER_BITS      = 8;
     parameter FRACTIONAL_BITS   = 32;
@@ -23,14 +23,10 @@ module EBN_tb;
     logic                                                 clk;
     logic                                                 reset;
     logic                                                 start_neuron;
-    logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0]  x0;
-    logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0]  x1;
-    logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0]  x0est, x1est;
-    logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0]  err0, err1;
     logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0]  i_dec      [Dims * N];
     logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0]  i_wf       [N * N];
     logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0]  i_cmd_tmp  [Dims * 15000];
-    logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0]  pot_thr    [N];
+    logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0]  pot_thresh    [N];
     logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0]  randn      [N];
     logic                                                 done;
     logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] temp_weights [N * N]; // Temporary storage for weights
@@ -50,7 +46,7 @@ module EBN_tb;
         .Three(Three),
         .Eta_W(Eta_W),
         .dt(dt),
-        .learn(learn),
+        .learn_thresh(learn_thresh),
         .learn_flg(learn_flg),
         .INTEGER_BITS(INTEGER_BITS),
         .FRACTIONAL_BITS(FRACTIONAL_BITS),
@@ -62,7 +58,7 @@ module EBN_tb;
         .reset(reset),
         .i_dec(i_dec),
         .i_wf(i_wf),
-        .pot_thr(pot_thr),
+        .pot_thresh(pot_thresh),
         .randn(randn),
         .done(done)
     );
@@ -99,7 +95,7 @@ module EBN_tb;
         $readmemb("dec_f.txt", i_dec);
         $readmemb("cmd_f.txt", i_cmd_tmp);
         $readmemb("ran_f.txt", randn);
-        $readmemb("thres_f.txt", pot_thr);              
+        $readmemb("thres_f.txt", pot_thresh);              
         #10
         reset = 0;
         start_neuron = 1;   
@@ -118,7 +114,7 @@ module EBN_tb;
                 $readmemb("dec_f.txt", i_dec);
                 $readmemb("cmd_f.txt", i_cmd_tmp);
                 $readmemb("ran_f.txt", randn);
-                $readmemb("thres_f.txt", pot_thr);  
+                $readmemb("thres_f.txt", pot_thresh);  
                 #10;
                 reset = 0;
                 $display("Reset Complete");
@@ -135,20 +131,7 @@ module EBN_tb;
 
 endmodule
 
-/*EBN.Dynamic.i_x[0] = -x0;
-        EBN.Dynamic.i_x[1] = -x1;
-        EBN.Dynamic.i_x_est[0] = -x0est;
-        EBN.Dynamic.i_x_est[1] = -x1est;
-        EBN.Dynamic.o_x[0] = -x0;
-        EBN.Dynamic.o_x[1] = -x1;
-        EBN.Dynamic.o_x_est[0] = -x0est;
-        EBN.Dynamic.o_x_est[1] = -x1est;
-        $readmemb("V_f.txt", EBN.Neuron.Neuron_Memory.mem);
-        $readmemb("rO_f.txt", EBN.spike_f_data);
-
-
-        $readmemb("W_S.txt", EBN.synaptic_core.Synaptic_Memory.mem);
-        file0 = $fopen("Potential_G.txt", "w");
+    /*  file0 = $fopen("Potential_G.txt", "w");
         file1 = $fopen("Spikes_G.txt", "w");
         file2 = $fopen("Spike_Filter_G.txt", "w");
         file3 = $fopen("Desired_X_G.txt", "w");
@@ -161,7 +144,7 @@ endmodule
         $fclose(file3);
         $fclose(file4);
         $fclose(file5);
-        */
+    */
         
         /*always_ff @(posedge clk) begin
         if (EBN.Neuron.done_lif_AU) begin
