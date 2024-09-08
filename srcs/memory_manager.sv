@@ -6,7 +6,7 @@ module memory_manager #(
 )(
     input  logic                                         clk,
     input  logic                                         reset,
-    input  logic                                         neuron_signal,   // Signal from neuron core
+    input  logic                                         neuron_signal,   // Signal to start i_wf & i_cmd loading
     input  logic                                         init_signal,     // Signal to start initialization (from init module)
     output logic                                         load_complete,   // Flag to indicate loading completion
     output logic  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_wf       [N],
@@ -29,11 +29,13 @@ module memory_manager #(
     logic [5:0] randn_index;
     
     // BRAM address control for i_wf and i_cmd
-    logic [9:0] wf_global_index;  // For accessing 64x64 elements in i_wf
-    logic [5:0] wf_index;         // Tracks loading of current 64-element block
-    logic [13:0] cmd_global_index; // For accessing 2x15000 elements in i_cmd
-    logic [1:0] cmd_index;         // Tracks loading of current 2-element block
-
+    logic        cmd_loading;
+    logic [13:0] cmd_global_index;
+    logic [1:0]  cmd_index;
+    logic        wf_loading;
+    logic [9:0]  wf_global_index;
+    logic [5:0]  wf_index;
+    
     // Instantiate BRAMs for the preloaded memory
     i_wf_bram u_i_wf_bram (
         .clk(clk),
@@ -68,7 +70,6 @@ module memory_manager #(
     // Initialization logic for i_dec, pot_thresh, and randn
     always_ff @(posedge clk or posedge reset) begin
         if (reset) begin
-            // Reset everything to zero
             i_dec            <= '{default: '0};
             pot_thresh       <= '{default: '0};
             randn            <= '{default: '0};
@@ -106,18 +107,18 @@ module memory_manager #(
             wf_index        <= 0;
             wf_global_index <= 0;
             wf_loading      <= 0;
-            i_wf            <= '{default: '0};  // Reset temp storage for 64 elements
+            i_wf            <= '{default: '0};
         end 
         else if (neuron_signal && !wf_loading && wf_index < 64) begin
             wf_loading <= 1;  // Start loading when neuron_signal is set
         end 
         else if (wf_loading) begin
             if (wf_index < 64) begin
-                i_wf[wf_index] <= i_wf_data;  // Load one element per cycle from BRAM
+                i_wf[wf_index] <= i_wf_data;
                 wf_index <= wf_index + 1;
             end
             if (wf_index == 63) begin
-                wf_loading <= 0;  // Stop loading after 64 elements
+                wf_loading <= 0;
                 wf_index   <= 0;
                 wf_global_index <= wf_global_index + 64;  // Move to next block of 64 elements
             end
@@ -130,18 +131,18 @@ module memory_manager #(
             cmd_index        <= 0;
             cmd_global_index <= 0;
             cmd_loading      <= 0;
-            i_cmd            <= '{default: '0};  // Reset temp storage for 2 elements
+            i_cmd            <= '{default: '0};
         end 
         else if (neuron_signal && !cmd_loading && cmd_index < 2) begin
-            cmd_loading <= 1;  // Start loading when neuron_signal is set
+            cmd_loading <= 1;
         end 
         else if (cmd_loading) begin
             if (cmd_index < 2) begin
-                i_cmd[cmd_index] <= cmd_data;  // Load one element per cycle from BRAM
+                i_cmd[cmd_index] <= cmd_data;
                 cmd_index <= cmd_index + 1;
             end
             if (cmd_index == 1) begin
-                cmd_loading <= 0;  // Stop loading after 2 elements
+                cmd_loading <= 0;
                 cmd_index   <= 0;
                 cmd_global_index <= cmd_global_index + 2;  // Move to next block of 2 elements
             end
