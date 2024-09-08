@@ -19,14 +19,20 @@ module synaptic_core #(
     output  logic                                                done 
 );
 
-    integer i;
-    logic write_en, read_en, done_learn, start;
-    logic [5:0] index_ws, index_spike_f;
-    logic [11:0] read_addr, write_addr, read_addr_buff;
-    logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0]  dec_t [Dims], ws_data, spike_f_tmp, upd_ws;
+    logic                                               write_en;
+    logic                                               read_en;
+    logic                                               done_learn;
+    logic                                               start;
+    logic         [11:0]                                read_addr;
+    logic         [11:0]                                write_addr;
+    logic         [11:0]                                read_addr_buff;
+    logic         [5:0]                                 index_ws;
+    logic         [5:0]                                 index_spike_f;
+    logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0] dec_t [Dims];
+    logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0] ws_data;
+    logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0] spike_f_tmp;
+    logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0] upd_ws;
     
-    
-
     assign read_en  = (!learn_en)? 1'b0 : (delay_counter == 0 || delay_counter == 65)? 1'b0 : 1'b1;
     assign write_en = done_learn;
 

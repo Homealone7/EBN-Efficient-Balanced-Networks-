@@ -31,11 +31,20 @@ module neuron_core #(
     output  logic                                                 done_spike,
     output  logic                                                 done 
 );
-    integer i;
-    logic start_spike_out;
-    logic [5:0] read_addr, write_addr, spike_out_index, prev_index;
-    logic [6:0] index;
-    logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0]  randn_tmp, neur_data, o_pot, dec_t [Dims], o_spike [N], spike_tmp [N], pot_thresh_diff;
+
+    logic                                               start_spike_out;
+    logic         [5:0]                                 read_addr;
+    logic         [5:0]                                 write_addr;
+    logic         [5:0]                                 spike_out_index;
+    logic         [5:0]                                 prev_index;
+    logic         [6:0]                                 index;
+    logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0] randn_tmp;
+    logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0] neur_data;
+    logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0] o_pot;
+    logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0] pot_thresh_diff;
+    logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0] o_spike   [N];
+    logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0] spike_tmp [N];
+    logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0] dec_t     [Dims];
     /////////////// Done ///////////////
     always_ff @(posedge clk or posedge reset) begin
         if (reset) begin
@@ -163,9 +172,7 @@ module neuron_core #(
     /////////////// Spikes Memory ///////////////
     always_ff @(posedge clk or posedge reset) begin
         if (reset) begin
-            for (i = 0; i < N; i++) begin
-                spike_tmp[i] <= 0;
-            end
+            spike_tmp <= '{default: '0};
         end
         else if (done_spike) begin
                 spike_tmp <= o_spike;

@@ -15,12 +15,13 @@ module controller #(
 );
 
     // Internal signals
-    logic [6:0] synaptic_update_counter;      // Synaptic weight update counter
-    logic [31:0] learning_cycle_counter;      // Learning counter
-    logic [1:0] sync_wait_counter;            // Wait counter for delay             
-    logic [6:0] spike_filter_counter;         // Spike filter counter
-    logic buff;                               // Buffer for spike filtering start signal
-    logic start_learning_counter;             // Internal signal to start learning counter
+    logic [6:0]     synaptic_update_counter;      // Synaptic weight update counter
+    logic [31:0]    learning_cycle_counter;      // Learning counter
+    logic [1:0]     sync_wait_counter;            // Wait counter for delay             
+    logic [6:0]     spike_filter_counter;         // Spike filter counter
+    logic           start_learning_counter;             // Internal signal to start learning counter
+    logic           buff;                               // Buffer for spike filtering start signal
+    
 
     // Enable learning if the counter exceeds the threshold and learn_flg is set
     assign learn_en = (reset) ? 1'b0 : ((learning_cycle_counter > learn_thresh) && learn_flg) ? 1'b1 : 1'b0;

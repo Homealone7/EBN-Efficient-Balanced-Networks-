@@ -21,64 +21,79 @@ module EBN #(
     input   logic                                                 clk,
     input   logic                                                 reset,
     input   logic                                                 start_neuron,
-    input   logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0]  i_dec      [Dims * N],
-    input   logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0]  i_wf       [N * N],
-    input   logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0]  pot_thresh [N],
-    input   logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0]  randn      [N],
     output  logic                                                 done
 );
 
     integer i;
-    logic wait_spike, learn_en, done_neuron, done_synaptic, done_dyn;
-    logic done_lif_AU, done_spike_f, done_spike_f_buff, spike_flg, start_spike_f;                                                 
-    logic [5:0] spike_pos;
-    logic [11:0] wf_index, delay_counter;
-    logic signed [INTEGER_BITS + FRACTIONAL_BITS - 1:0] o_ws[N], i_wf_tmp[N], o_spike_f[N], i_cmd [Dims], old_cmd[Dims], o_err[Dims], old_err[Dims];
-    logic signed [INTEGER_BITS + FRACTIONAL_BITS - 1:0] spike_f_data[N], old_spike_f_data[N];
 
-    always_ff @(posedge clk or posedge reset) begin 
-        if (reset) begin
-            done <= 0;
-        end
-        else begin
-            if (done_dyn) begin
-                done <= 1;
-            end
-            else done <= 0;
-        end 
-    end
+    // Signals from controller
+    logic        [11:0]                                 delay_counter;
+    logic                                               learn_en;
+    logic                                               start_spike_filter;
+    logic                                               wait_spike;
+
+    // Signals from memory_manager
+    logic signed [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_wf             [N];
+    logic signed [INTEGER_BITS + FRACTIONAL_BITS - 1:0] pot_thresh       [N];
+    logic signed [INTEGER_BITS + FRACTIONAL_BITS - 1:0] randn            [N];
+    logic signed [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_cmd            [Dims];
+    logic signed [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_dec            [N* Dims];
+
+    // Delayed Signals for Synaptic_core
+    logic signed [INTEGER_BITS + FRACTIONAL_BITS - 1:0] old_spike_f_data [N];
+    logic signed [INTEGER_BITS + FRACTIONAL_BITS - 1:0] old_cmd          [Dims]; 
+    logic signed [INTEGER_BITS + FRACTIONAL_BITS - 1:0] old_err          [Dims];
+
+    // Signals from Synaptic_core
+    logic signed [INTEGER_BITS + FRACTIONAL_BITS - 1:0] o_ws             [N];
+    logic                                               done_synaptic;
+
+    // Signals from Nueron_core
+    logic        [5:0]                                  spike_pos;
+    logic                                               done_lif_AU; 
+    logic                                               done_neuron;
+    logic                                               spike_flg;
+
+    // Signals from spike_filter
+    logic signed [INTEGER_BITS + FRACTIONAL_BITS - 1:0] o_spike_f        [N];
+    logic                                               done_spike_f;
     
-    always_ff @(posedge clk or posedge reset) begin 
-        if (reset) begin
-            wf_index <= 64;
-            i_wf_tmp <= i_wf[0:63];
-            i_cmd[0] <= 0;
-            i_cmd[1] <= 0;
-        end
-        else begin
-            if (wait_spike) begin
-                if (Neuron.done_spike) begin
-                    wf_index <= 64;
-                    i_wf_tmp <= i_wf[0:63];
-                end
-            end
-            else begin
-                if (Neuron.done_lif_AU) begin
-                    wf_index <= wf_index + 64;
-                    i_wf_tmp <= i_wf[wf_index +: 64];
-                end
-            end
-        end           
-    end
+    // Signals from Desired_Dynamic
+    logic signed [INTEGER_BITS + FRACTIONAL_BITS - 1:0] o_err            [Dims];
+    logic                                               done_dyn; 
+
+    // Signals for Spike_filter sync
+    logic signed [INTEGER_BITS + FRACTIONAL_BITS - 1:0] spike_f_data     [N]; 
+    logic                                               done_spike_f_buff;
+    
 
     always_ff @(posedge clk or posedge reset) begin
         if (reset) begin
+            done               <= 0;
             done_spike_f_buff  <= 0;
         end
         else begin
+            if (done_dyn) done <= 1;
+            else          done <= 0;
             done_spike_f_buff  <= done_spike_f;
         end
     end
+
+    // Instantiate the memory manager module
+    memory_manager #(
+        .N(N),
+        .Dims(Dims),
+        .INTEGER_BITS(INTEGER_BITS),
+        .FRACTIONAL_BITS(FRACTIONAL_BITS)
+    ) memory_inst (
+        .clk(clk),
+        .reset(reset),
+        .i_wf(i_wf),
+        .i_dec(i_dec),
+        .pot_thresh(pot_thresh),
+        .randn(randn),
+        .i_cmd(i_cmd)
+    );
 
     controller #(
         .N(N),
@@ -91,7 +106,7 @@ module EBN #(
         .neuron_processing_done(done_lif_AU), // Signal from neuron core indicating neuron processing is complete
         .done_spike(done_spike),              // Signal from neuron core indicating spike processing is complete
         .learn_en(learn_en),                  // Output signal enabling learning
-        .start_spike_filter(start_spike_f),   // Start signal for spike filtering
+        .start_spike_filter(start_spike_filter),   // Start signal for spike filtering
         .wait_spike(wait_spike),              // Output signal indicating the system is waiting for spikes Output
         .delay_counter(delay_counter)
     );
@@ -142,12 +157,12 @@ module EBN #(
     )synaptic_core(
         .clk(clk),
         .reset(reset),
+        .learn_en(learn_en),
         .delay_counter(delay_counter),
         .i_dec(i_dec),
         .i_err(old_err),    
         .i_spike_f(old_spike_f_data),     
-        .o_ws(o_ws),
-        .learn_en(learn_en),     
+        .o_ws(o_ws), 
         .done(done_synaptic)
     );
 
@@ -161,38 +176,11 @@ module EBN #(
     )spike_f(
         .clk(clk),
         .reset(reset),
-        .start(start_spike_f), 
+        .start(start_spike_filter), 
         .i_spike_f(spike_f_data),    
         .o_spike_f(o_spike_f),    
         .done(done_spike_f)
     );
-
-    always_ff @(posedge clk or posedge reset) begin
-        if (reset) begin
-            for (i = 0; i < N; i++) begin
-                spike_f_data[i] <= 0;
-                old_spike_f_data [i] <= 0;
-            end
-            old_err[0]  <= 0;
-            old_err[1]  <= 0;
-            old_cmd[0]  <= 0;
-            old_cmd[1]  <= 0;
-        end
-        else begin
-            if (Neuron.spike_out_index == N - 1) begin
-                old_spike_f_data <= spike_f_data;
-                old_err[0]  <= o_err[0];
-                old_err[1]  <= o_err[1];
-                old_cmd[0]  <= i_cmd[0];
-                old_cmd[1]  <= i_cmd[1];
-            end
-            if (done_spike_f_buff) begin
-                for (i = 0; i < N; i++) begin
-                    spike_f_data[i] <= (spike_flg && (i == spike_pos))? o_spike_f[i] + { {(INTEGER_BITS - 1){1'b0}}, 1'b1, {(FRACTIONAL_BITS){1'b0}} }: o_spike_f[i];
-                end
-            end 
-        end         
-    end
 
     Desired_Dynamic #(
     .N(N),              
@@ -215,5 +203,30 @@ module EBN #(
     .o_err(o_err),
     .done(done_dyn)
     );
+
+    always_ff @(posedge clk or posedge reset) begin
+        if (reset) begin
+            spike_f_data     <= '{default: '0};
+            old_spike_f_data <= '{default: '0};
+            old_err[0]  <= 0;
+            old_err[1]  <= 0;
+            old_cmd[0]  <= 0;
+            old_cmd[1]  <= 0;
+        end
+        else begin
+            if (Neuron.spike_out_index == N - 1) begin
+                old_spike_f_data <= spike_f_data;
+                old_err[0]  <= o_err[0];
+                old_err[1]  <= o_err[1];
+                old_cmd[0]  <= i_cmd[0];
+                old_cmd[1]  <= i_cmd[1];
+            end
+            if (done_spike_f_buff) begin
+                for (i = 0; i < N; i++) begin
+                    spike_f_data[i] <= (spike_flg && (i == spike_pos))? o_spike_f[i] + { {(INTEGER_BITS - 1){1'b0}}, 1'b1, {(FRACTIONAL_BITS){1'b0}} }: o_spike_f[i];
+                end
+            end 
+        end         
+    end
         
 endmodule

@@ -18,10 +18,14 @@ module learn_rule #(
     output  logic                                                done
 );
 
-    integer i;
-    logic overflow;
-    logic [5:0] index;
-    logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0]  mult_result, eta_dt, o_spike_f_dec, dec_err0, dec_err1, dec_err;
+    logic                                               overflow;
+    logic         [5:0]                                 index;
+    logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0] mult_result;
+    logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0] eta_dt;
+    logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0] o_spike_f_dec;
+    logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0] dec_err0;
+    logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0] dec_err1;
+    logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0] dec_err;
 
     assign dec_err = dec_err0 + dec_err1;
 
@@ -41,9 +45,7 @@ module learn_rule #(
 
     always_ff @(posedge clk or posedge reset) begin
         if (reset) begin
-            for (i = 0; i < N; i++) begin
-                o_ws[i] <= 0;
-            end
+            o_ws <= '{default: '0};
         end
         else begin
             if (start) begin

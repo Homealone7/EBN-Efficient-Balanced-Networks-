@@ -17,14 +17,19 @@ module dynamic #(
     output  logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] o_x         [Dims],
     output  logic                                                done
 );  
-    logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0] neg_dyn, step, x0, x1, x0_dyn, temp1;
+    logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0] neg_dyn; 
+    logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0] step; 
+    logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0] x0;
+    logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0] x1;
+    logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0] x0_dyn;
+    logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0] temp1;
+
     assign neg_dyn  = -dyn;
     assign temp1    = x0_dyn - i_x[0]; // x[1] = position, x[0] = velocity
 
     always_ff @(posedge clk or posedge reset) begin
         if (reset) begin
-            o_x[0] <= 0;
-            o_x[1] <= 0;
+            o_x <= '{default: '0};
             done   <= 0;
         end 
         else begin

@@ -14,7 +14,7 @@ module spike_out #(
     output  logic                                                done
 );
     integer i;
-    logic [5:0] max_pos;
+    logic        [5:0]                                  max_pos;
     logic signed [INTEGER_BITS + FRACTIONAL_BITS - 1:0] max_pot;
 
     always_ff @(posedge clk or posedge reset) begin
@@ -24,9 +24,7 @@ module spike_out #(
             max_pos     <= 0;
             spike_pos   <= 0;
             spike_flg   <= 0;
-            for(i = 0; i < N; i++) begin
-                o_spike[i] <= 0;
-            end
+            o_spike     <= '{default: '0};
         end
         else begin
             if(pot_thresh_diff > max_pot) begin

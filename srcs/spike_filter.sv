@@ -14,22 +14,18 @@ module spike_filter #(
     output  logic                                                done
 ); 
 
-    logic signed [INTEGER_BITS + FRACTIONAL_BITS -1:0] spike_leak, lambda_dt, leak;
-    logic [5:0] index;
-    logic calculating;
-    integer i;
-
-    // Shift register to delay the calculation by 4 cycles
-    logic signed [INTEGER_BITS + FRACTIONAL_BITS -1:0] spike_leak_shift [3:0];
+    logic                                              calculating;
+    logic        [5:0]                                 index;
+    logic signed [INTEGER_BITS + FRACTIONAL_BITS -1:0] spike_leak;
+    logic signed [INTEGER_BITS + FRACTIONAL_BITS -1:0] lambda_dt;
+    logic signed [INTEGER_BITS + FRACTIONAL_BITS -1:0] leak;
     
     always_ff @(posedge clk or posedge reset) begin
         if (reset) begin
             done        <= 0;
             calculating <= 0;
             index       <= 0;
-            for (i = 0; i < N; i++) begin
-                o_spike_f[i] <= 0;
-            end
+            o_spike_f   <= '{default: '0};
         end
         else begin
             if (start && !calculating) begin

@@ -20,18 +20,19 @@ module Desired_Dynamic #(
     output  logic                                                done
 );
 
-logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0]  i_x[Dims], i_x_est[Dims], o_x[Dims], o_x_est[Dims];
-logic done_est;
+    logic                                               done_est;
+    logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0] i_x     [Dims];
+    logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0] i_x_est [Dims];
+    logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0] o_x     [Dims];
+    logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0] o_x_est [Dims];
 
     assign o_err[0] = (reset)? 0 : o_x[0] - o_x_est[0];
     assign o_err[1] = (reset)? 0 : o_x[1] - o_x_est[1];
 
     always_ff @(posedge clk or posedge reset ) begin
         if (reset) begin
-            i_x[0]     <= 0;
-            i_x[1]     <= 0;
-            i_x_est[0] <= 0;
-            i_x_est[1] <= 0;
+            i_x     <= '{default: '0};
+            i_x_est <= '{default: '0};
         end
         else begin
             if (done_est) begin

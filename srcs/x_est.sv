@@ -18,15 +18,17 @@ module x_est #(
     output  logic                                                done
 );
 
-    logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0] x1_est_leak, x0_est_leak, lambda_dt, leak;
+    logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0] x1_est_leak;
+    logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0] x0_est_leak;
+    logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0] lambda_dt;
+    logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0] leak;
 
     assign leak = One - lambda_dt;
 
     always_ff @(posedge clk or posedge reset) begin
         if (reset) begin
-            o_x_est[0] <= 0;
-            o_x_est[1] <= 0;
-            done       <= 0;
+            o_x_est <= '{default: '0};
+            done    <= 0;
         end 
         else begin
             if (start) begin

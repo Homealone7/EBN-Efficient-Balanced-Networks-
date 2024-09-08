@@ -30,10 +30,25 @@ module lif_AU #(
     output  logic                                                done    
 );
 
-    logic done_dec_cmd, done_dec_err, done_wf_spike, done_ws_spike_f, next_dec, start_dec, start_w;
-    
-    logic signed [INTEGER_BITS + FRACTIONAL_BITS -1:0] leak_str, pot_leak, o_dec_cmd[A_ROWS], o_dec_err[A_ROWS], o_ws_spike_f[A_ROWS], o_wf_spike[A_ROWS]; 
-    logic signed [INTEGER_BITS + FRACTIONAL_BITS -1:0] lambdaV_dt, ws_spike_f_dt, dec_err_k, noise, Gain_D_sqr, noise_randn;
+    logic                                              done_dec_cmd;
+    logic                                              done_dec_err;
+    logic                                              done_wf_spike;
+    logic                                              done_ws_spike_f;
+    logic                                              next_dec;
+    logic                                              start_dec;
+    logic                                              start_w;
+    logic signed [INTEGER_BITS + FRACTIONAL_BITS -1:0] leak_str;
+    logic signed [INTEGER_BITS + FRACTIONAL_BITS -1:0] pot_leak;
+    logic signed [INTEGER_BITS + FRACTIONAL_BITS -1:0] lambdaV_dt;
+    logic signed [INTEGER_BITS + FRACTIONAL_BITS -1:0] ws_spike_f_dt;
+    logic signed [INTEGER_BITS + FRACTIONAL_BITS -1:0] dec_err_k;
+    logic signed [INTEGER_BITS + FRACTIONAL_BITS -1:0] noise;
+    logic signed [INTEGER_BITS + FRACTIONAL_BITS -1:0] Gain_D_sqr;
+    logic signed [INTEGER_BITS + FRACTIONAL_BITS -1:0] noise_randn;
+    logic signed [INTEGER_BITS + FRACTIONAL_BITS -1:0] o_dec_cmd    [A_ROWS];
+    logic signed [INTEGER_BITS + FRACTIONAL_BITS -1:0] o_dec_err    [A_ROWS];
+    logic signed [INTEGER_BITS + FRACTIONAL_BITS -1:0] o_ws_spike_f [A_ROWS];
+    logic signed [INTEGER_BITS + FRACTIONAL_BITS -1:0] o_wf_spike   [A_ROWS]; 
 
     assign leak_str = One - lambdaV_dt;
     assign o_pot = pot_leak + o_dec_cmd[0] + o_wf_spike[0] + ws_spike_f_dt + dec_err_k + noise_randn;
