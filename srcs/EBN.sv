@@ -20,7 +20,7 @@ module EBN #(
 ) (
     input   logic                                                 clk,
     input   logic                                                 reset,
-    input   logic                                                 start_neuron,
+    input   logic                                                 init_signal,
     output  logic                                                 done
 );
 
@@ -31,6 +31,7 @@ module EBN #(
     logic                                               learn_en;
     logic                                               start_spike_filter;
     logic                                               wait_spike;
+    logic                                               start_neuron;
 
     // Signals from memory_manager
     logic signed [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_wf             [N];
@@ -38,10 +39,10 @@ module EBN #(
     logic signed [INTEGER_BITS + FRACTIONAL_BITS - 1:0] randn            [N];
     logic signed [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_cmd            [Dims];
     logic signed [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_dec            [N* Dims];
+    logic                                               load_complete;
 
     // Delayed Signals for Synaptic_core
     logic signed [INTEGER_BITS + FRACTIONAL_BITS - 1:0] old_spike_f_data [N];
-    logic signed [INTEGER_BITS + FRACTIONAL_BITS - 1:0] old_cmd          [Dims]; 
     logic signed [INTEGER_BITS + FRACTIONAL_BITS - 1:0] old_err          [Dims];
 
     // Signals from Synaptic_core
@@ -52,7 +53,10 @@ module EBN #(
     logic        [5:0]                                  spike_pos;
     logic                                               done_lif_AU; 
     logic                                               done_neuron;
+    logic                                               done_spike;
     logic                                               spike_flg;
+    logic                                               next_wf;
+    logic                                               next;
 
     // Signals from spike_filter
     logic signed [INTEGER_BITS + FRACTIONAL_BITS - 1:0] o_spike_f        [N];
@@ -85,9 +89,12 @@ module EBN #(
         .Dims(Dims),
         .INTEGER_BITS(INTEGER_BITS),
         .FRACTIONAL_BITS(FRACTIONAL_BITS)
-    ) memory_inst (
+    ) u_memory_manager (
         .clk(clk),
         .reset(reset),
+        .load_trigger(next_wf),        // Signal to start i_wf & i_cmd loading
+        .init_signal(init_signal),          // Initialization signal
+        .load_complete(load_complete),      // Load completion flag
         .i_wf(i_wf),
         .i_dec(i_dec),
         .pot_thresh(pot_thresh),
@@ -102,9 +109,11 @@ module EBN #(
     ) controller_inst (
         .clk(clk),                              
         .reset(reset),
+        .load_complete(load_complete),
         .next_synaptic_update(next),          // Signal from the neuron core indicating next synaptic update
         .neuron_processing_done(done_lif_AU), // Signal from neuron core indicating neuron processing is complete
         .done_spike(done_spike),              // Signal from neuron core indicating spike processing is complete
+        .start_neuron(start_neuron),
         .learn_en(learn_en),                  // Output signal enabling learning
         .start_spike_filter(start_spike_filter),   // Start signal for spike filtering
         .wait_spike(wait_spike),              // Output signal indicating the system is waiting for spikes Output
@@ -132,7 +141,7 @@ module EBN #(
         .i_dec(i_dec),
         .i_cmd(i_cmd),
         .i_err(o_err),
-        .i_wf(i_wf_tmp),
+        .i_wf(i_wf),
         .i_ws(o_ws),
         .i_spike_f(spike_f_data),
         .pot_thresh(pot_thresh),
@@ -140,6 +149,7 @@ module EBN #(
         .spike_pos(spike_pos),
         .spike_flg(spike_flg),
         .next(next),
+        .next_wf(next_wf),
         .done_lif_AU(done_lif_AU),
         .done_spike(done_spike),
         .done(done_neuron)
@@ -210,16 +220,12 @@ module EBN #(
             old_spike_f_data <= '{default: '0};
             old_err[0]  <= 0;
             old_err[1]  <= 0;
-            old_cmd[0]  <= 0;
-            old_cmd[1]  <= 0;
         end
         else begin
             if (Neuron.spike_out_index == N - 1) begin
                 old_spike_f_data <= spike_f_data;
                 old_err[0]  <= o_err[0];
                 old_err[1]  <= o_err[1];
-                old_cmd[0]  <= i_cmd[0];
-                old_cmd[1]  <= i_cmd[1];
             end
             if (done_spike_f_buff) begin
                 for (i = 0; i < N; i++) begin

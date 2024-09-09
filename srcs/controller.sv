@@ -5,9 +5,11 @@ module controller #(
 )(
     input logic         clk,
     input logic         reset,
+    input logic         load_complete,
     input logic         next_synaptic_update,   // Signal to start the next synaptic update
     input logic         neuron_processing_done, // Done signal from LIF in neuron_core
     input logic         done_spike,             // Done signal from spike processing
+    output logic        start_neuron,
     output logic        learn_en,               // Enable learning process       
     output logic        start_spike_filter,     // Start signal for spike filtering
     output logic        wait_spike,             // Signal indicating wait for spike output
@@ -25,7 +27,7 @@ module controller #(
 
     // Enable learning if the counter exceeds the threshold and learn_flg is set
     assign learn_en = (reset) ? 1'b0 : ((learning_cycle_counter > learn_thresh) && learn_flg) ? 1'b1 : 1'b0;
-
+    assign start_neuron = load_complete;
     // Manage the learning counter start (internal start_learning_counter)
     always_ff @(posedge clk or posedge reset) begin
         if (reset) begin

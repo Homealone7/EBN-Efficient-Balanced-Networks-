@@ -27,12 +27,14 @@ module neuron_core #(
     output  logic         [5:0]                                   spike_pos,
     output  logic                                                 spike_flg, // Spike happened if = 1;
     output  logic                                                 next,
+    output  logic                                                 next_wf,
     output  logic                                                 done_lif_AU,
     output  logic                                                 done_spike,
     output  logic                                                 done 
 );
 
     logic                                               start_spike_out;
+    logic                                               start_w;
     logic         [5:0]                                 read_addr;
     logic         [5:0]                                 write_addr;
     logic         [5:0]                                 spike_out_index;
@@ -49,8 +51,10 @@ module neuron_core #(
     always_ff @(posedge clk or posedge reset) begin
         if (reset) begin
             done        <= 0;
+            next_wf     <= 0;
         end
         else begin
+            next_wf     <= start_w;
             if (done_spike) begin
                 done    <= 1;
             end
@@ -149,6 +153,7 @@ module neuron_core #(
         .i_pot(neur_data),
         .wait_spike(wait_spike),
         .randn(randn_tmp),
+        .start_w(start_w),
         .next(next),
         .o_pot(o_pot),
         .done(done_lif_AU)

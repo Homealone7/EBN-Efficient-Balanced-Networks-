@@ -4,24 +4,24 @@ module memory_manager #(
     parameter INTEGER_BITS      = 8,
     parameter FRACTIONAL_BITS   = 32
 )(
-    input  logic                                         clk,
-    input  logic                                         reset,
-    input  logic                                         neuron_signal,   // Signal to start i_wf & i_cmd loading
-    input  logic                                         init_signal,     // Signal to start initialization (from init module)
-    output logic                                         load_complete,   // Flag to indicate loading completion
-    output logic  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_wf       [N],
-    output logic  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_dec      [Dims * N],
-    output logic  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] pot_thresh [N],
-    output logic  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] randn      [N],
-    output logic  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_cmd      [Dims]
+    input  logic                                                clk,
+    input  logic                                                reset,
+    input  logic                                                load_trigger,   // Signal to start i_wf & i_cmd loading
+    input  logic                                                init_signal,     // Signal to start initialization (from init module)
+    output logic                                                load_complete,   // Flag to indicate loading completion
+    output logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_wf       [N],
+    output logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_dec      [Dims * N],
+    output logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] pot_thresh [N],
+    output logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] randn      [N],
+    output logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_cmd      [Dims]
 );
 
     // BRAM interfaces for i_wf, i_dec, pot_thresh, randn, and i_cmd (preloaded from COE files)
-    logic [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_wf_data;
-    logic [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_dec_data;
-    logic [INTEGER_BITS + FRACTIONAL_BITS - 1:0] pot_thresh_data;
-    logic [INTEGER_BITS + FRACTIONAL_BITS - 1:0] randn_data;
-    logic [INTEGER_BITS + FRACTIONAL_BITS - 1:0] cmd_data;
+    logic signed [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_wf_data;
+    logic signed [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_dec_data;
+    logic signed [INTEGER_BITS + FRACTIONAL_BITS - 1:0] pot_thresh_data;
+    logic signed [INTEGER_BITS + FRACTIONAL_BITS - 1:0] randn_data;
+    logic signed [INTEGER_BITS + FRACTIONAL_BITS - 1:0] cmd_data;
 
     // Index counters for loading data
     logic [6:0] dec_index;       
@@ -31,40 +31,40 @@ module memory_manager #(
     // BRAM address control for i_wf and i_cmd
     logic        cmd_loading;
     logic [13:0] cmd_global_index;
-    logic [1:0]  cmd_index;
+    logic [0:0]  cmd_index;
     logic        wf_loading;
-    logic [9:0]  wf_global_index;
+    logic [5:0]  wf_global_index;
     logic [5:0]  wf_index;
     
     // Instantiate BRAMs for the preloaded memory
     i_wf_bram u_i_wf_bram (
-        .clk(clk),
-        .addr(wf_global_index + wf_index),  // Address based on global and local index
-        .data_out(i_wf_data)  // Fast weights output
+        .clka(clk),
+        .addra({wf_global_index, wf_index}),  // Address based on global and local index
+        .douta(i_wf_data)  // Fast weights output
     );
 
     cmd_bram u_cmd_bram (
-        .clk(clk),
-        .addr(cmd_global_index + cmd_index),  // Address based on global and local index
-        .data_out(cmd_data)  // Command output
+        .clka(clk),
+        .addra({cmd_global_index, cmd_index}),  // Address based on global and local index
+        .douta(cmd_data)  // Command output
     );
 
     i_dec_bram u_i_dec_bram (
-        .clk(clk),
-        .addr(dec_index),
-        .data_out(i_dec_data)  // Decoder output
+        .clka(clk),
+        .addra(dec_index),
+        .douta(i_dec_data)  // Decoder output
     );
 
     pot_thresh_bram u_pot_thresh_bram (
-        .clk(clk),
-        .addr(pot_thresh_index),
-        .data_out(pot_thresh_data)  // Threshold output
+        .clka(clk),
+        .addra(pot_thresh_index),
+        .douta(pot_thresh_data)  // Threshold output
     );
 
     rand_bram u_rand_bram (
-        .clk(clk),
-        .addr(randn_index),
-        .data_out(randn_data)  // Random number output
+        .clka(clk),
+        .addra(randn_index),
+        .douta(randn_data)  // Random number output
     );
 
     // Initialization logic for i_dec, pot_thresh, and randn
@@ -101,7 +101,7 @@ module memory_manager #(
         end
     end
 
-    // Logic to update i_wf (64 elements)
+    // Logic to update i_wf (64 elements, 1 per clock cycle)
     always_ff @(posedge clk or posedge reset) begin
         if (reset) begin
             wf_index        <= 0;
@@ -109,23 +109,24 @@ module memory_manager #(
             wf_loading      <= 0;
             i_wf            <= '{default: '0};
         end 
-        else if (neuron_signal && !wf_loading && wf_index < 64) begin
-            wf_loading <= 1;  // Start loading when neuron_signal is set
+        else if (load_trigger && !wf_loading) begin
+            wf_loading <= 1;  // Start loading when load_trigger is set
         end 
         else if (wf_loading) begin
-            if (wf_index < 64) begin
-                i_wf[wf_index] <= i_wf_data;
+            if (wf_index < 63) begin
+                i_wf[wf_index] <= i_wf_data;  // Load first 63 elements
                 wf_index <= wf_index + 1;
-            end
-            if (wf_index == 63) begin
+            end 
+            else if (wf_index == 63) begin
+                i_wf[wf_index] <= i_wf_data;  // Load last element
                 wf_loading <= 0;
                 wf_index   <= 0;
-                wf_global_index <= wf_global_index + 64;  // Move to next block of 64 elements
+                wf_global_index <= wf_global_index + 1;  // Move to next block of 64 elements
             end
         end
     end
 
-    // Logic to update i_cmd (2 elements)
+    // Logic to update i_cmd (2 elements, 1 per clock cycle)
     always_ff @(posedge clk or posedge reset) begin
         if (reset) begin
             cmd_index        <= 0;
@@ -133,18 +134,19 @@ module memory_manager #(
             cmd_loading      <= 0;
             i_cmd            <= '{default: '0};
         end 
-        else if (neuron_signal && !cmd_loading && cmd_index < 2) begin
+        else if (load_trigger && !cmd_loading) begin
             cmd_loading <= 1;
         end 
         else if (cmd_loading) begin
-            if (cmd_index < 2) begin
-                i_cmd[cmd_index] <= cmd_data;
+            if (cmd_index == 0) begin
+                i_cmd[cmd_index] <= cmd_data;  // Load 1st element
                 cmd_index <= cmd_index + 1;
-            end
-            if (cmd_index == 1) begin
+            end 
+            else if (cmd_index == 1) begin
+                i_cmd[cmd_index] <= cmd_data;  // Load 2nd element
                 cmd_loading <= 0;
                 cmd_index   <= 0;
-                cmd_global_index <= cmd_global_index + 2;  // Move to next block of 2 elements
+                cmd_global_index <= cmd_global_index + 1;  // Move to next block of 2 elements
             end
         end
     end

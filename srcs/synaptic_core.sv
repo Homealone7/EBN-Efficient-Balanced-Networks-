@@ -10,7 +10,7 @@ module synaptic_core #(
 )(
     input   logic                                                clk,
     input   logic                                                reset,
-    input   logic                                                delay_counter,
+    input   logic         [11:0]                                 delay_counter,
     input   logic                                                learn_en,
     input   logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_dec      [Dims * N],
     input   logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_err      [Dims],     // Calculation error

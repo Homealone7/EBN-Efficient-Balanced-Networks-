@@ -26,17 +26,19 @@ module lif_AU #(
     input   logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_spike_f   [N],        // Filtered Spikes
     input   logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] randn,
     output  logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] o_pot,                  // Memberane potential
+    output  logic                                                start_w,
     output  logic                                                next,
     output  logic                                                done    
 );
-
+    //start_w to controller, controller counts 2 cycles then sets singal from mem update (i_wf, i_cmd)
+    // Init i_wf and icmd, also maybe just use start ws and use a ff to delay it
     logic                                              done_dec_cmd;
     logic                                              done_dec_err;
     logic                                              done_wf_spike;
     logic                                              done_ws_spike_f;
     logic                                              next_dec;
     logic                                              start_dec;
-    logic                                              start_w;
+    //logic                                              start_w;
     logic signed [INTEGER_BITS + FRACTIONAL_BITS -1:0] leak_str;
     logic signed [INTEGER_BITS + FRACTIONAL_BITS -1:0] pot_leak;
     logic signed [INTEGER_BITS + FRACTIONAL_BITS -1:0] lambdaV_dt;
