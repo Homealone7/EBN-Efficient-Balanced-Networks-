@@ -29,7 +29,7 @@ module Desired_Dynamic #(
     assign o_err[0] = (reset)? 0 : o_x[0] - o_x_est[0];
     assign o_err[1] = (reset)? 0 : o_x[1] - o_x_est[1];
 
-    always_ff @(posedge clk or posedge reset ) begin
+    always_ff @(posedge clk ) begin
         if (reset) begin
             i_x     <= '{default: '0};
             i_x_est <= '{default: '0};

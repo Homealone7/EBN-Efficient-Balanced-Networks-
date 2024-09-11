@@ -1,12 +1,12 @@
 module neuron_core #(
     parameter N                 = 64,
     parameter Dims              = 2,
-    parameter NzMemb            = 40'h 10000,
-    parameter Gain_D            = 40'h 10000,
-    parameter K                 = 40'h 10000,
-    parameter LambdaV           = 40'h 32000,
-    parameter dt                = 40'h 68D,
-    parameter One               = 40'h 10000,
+    parameter NzMemb            = 16'h 1000,
+    parameter Gain_D            = 16'h 1000,
+    parameter K                 = 16'h 1000,
+    parameter LambdaV           = 16'h 3200,
+    parameter dt                = 16'h 68D0,
+    parameter One               = 16'h 1000,
     parameter INTEGER_BITS      = 8,
     parameter FRACTIONAL_BITS   = 32,
     parameter A_ROWS            = 1,
@@ -24,6 +24,7 @@ module neuron_core #(
     input   logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0]  i_spike_f  [N],
     input   logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0]  pot_thresh [N],
     input   logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0]  randn      [N],
+    output  logic         [5:0]                                   spike_out_index,
     output  logic         [5:0]                                   spike_pos,
     output  logic                                                 spike_flg, // Spike happened if = 1;
     output  logic                                                 next,
@@ -37,18 +38,17 @@ module neuron_core #(
     logic                                               start_w;
     logic         [5:0]                                 read_addr;
     logic         [5:0]                                 write_addr;
-    logic         [5:0]                                 spike_out_index;
     logic         [5:0]                                 prev_index;
     logic         [6:0]                                 index;
+    logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0] o_pot;
     logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0] randn_tmp;
     logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0] neur_data;
-    logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0] o_pot;
     logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0] pot_thresh_diff;
     logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0] o_spike   [N];
     logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0] spike_tmp [N];
     logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0] dec_t     [Dims];
     /////////////// Done ///////////////
-    always_ff @(posedge clk or posedge reset) begin
+    always_ff @(posedge clk) begin
         if (reset) begin
             done        <= 0;
             next_wf     <= 0;
@@ -64,15 +64,17 @@ module neuron_core #(
         end     
     end
     ///////////////// Output Spikes Start ///////////////
-    always_ff @(posedge clk or posedge reset) begin
+    always_ff @(posedge clk) begin
         if (reset) begin
             spike_out_index <= 0;
             prev_index      <= 0;
             start_spike_out <= 0;
             pot_thresh_diff <= 0;
+            write_addr      <= 0;
         end
         else begin
             prev_index <=  spike_out_index;
+            write_addr  <= read_addr;
             if (done_lif_AU) begin
                 if (spike_out_index == N - 1) begin
                     start_spike_out <= 1;
@@ -84,17 +86,18 @@ module neuron_core #(
         end
     end  
     /////////////// Decoder Transpose & Addr ///////////////
-    always_ff @(posedge clk or posedge reset) begin 
+    always_ff @(posedge clk) begin 
         if (reset) begin
             index             <= 0;
             read_addr         <= 0;
-            write_addr        <= 0;
-            randn_tmp         <= randn[0];
-            dec_t[0]          <= i_dec[0];
-            dec_t[1]          <= i_dec[64];    
+            randn_tmp         <= 0;
+            dec_t[0]          <= 0;
+            dec_t[1]          <= 0;    
         end
         else begin
-            write_addr  <= read_addr;
+            randn_tmp         <= randn[0];
+            dec_t[0]          <= i_dec[0];
+            dec_t[1]          <= i_dec[64];
             if (wait_spike) begin
                 if (done_spike) begin
                     index             <= 0;
@@ -175,7 +178,7 @@ module neuron_core #(
         .done(done_spike)
     );
     /////////////// Spikes Memory ///////////////
-    always_ff @(posedge clk or posedge reset) begin
+    always_ff @(posedge clk) begin
         if (reset) begin
             spike_tmp <= '{default: '0};
         end

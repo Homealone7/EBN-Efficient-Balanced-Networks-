@@ -1,12 +1,12 @@
 module synaptic_core #(
     parameter N                 = 64,
     parameter Dims              = 2,
-    parameter Eta_W             = 40'h 4CCCCCCC,
-    parameter dt                = 40'h 68DB8,
+    parameter Eta_W             = 16'h 4CCC,
+    parameter dt                = 16'h 68DB,
     parameter learn_thresh      = 100,
     parameter learn_flg         = 1,                                                      
-    parameter INTEGER_BITS      = 8,
-    parameter FRACTIONAL_BITS   = 32
+    parameter INTEGER_BITS      = 4,
+    parameter FRACTIONAL_BITS   = 12
 )(
     input   logic                                                clk,
     input   logic                                                reset,
@@ -37,7 +37,7 @@ module synaptic_core #(
     assign write_en = done_learn;
 
     /////////////// Output ///////////////
-    always_ff @(posedge clk or posedge reset) begin
+    always_ff @(posedge clk) begin
         if (reset)
             done        <= 0;
         else begin
@@ -48,17 +48,20 @@ module synaptic_core #(
         end
     end
     /////////////// Decoder Transpose & Read Addr ///////////////
-    always_ff @(posedge clk or posedge reset) begin
+    always_ff @(posedge clk) begin
         if (reset) begin
             index_ws      <= 0;
             index_spike_f <= 0;
             read_addr     <= 0;
             start         <= 0;
+            spike_f_tmp   <= 0;
+            dec_t[0]      <= 0;
+            dec_t[1]      <= 0;
+        end
+        else begin
             spike_f_tmp   <= i_spike_f[0];
             dec_t[0]      <= i_dec[0];
             dec_t[1]      <= i_dec[64];
-        end
-        else begin
             if (learn_en) begin
                 if (delay_counter != 0 && delay_counter != 65) read_addr   <= read_addr + 1;
                 if (delay_counter == 1) begin
@@ -107,7 +110,7 @@ module synaptic_core #(
     );    
     
     /////////////// Wirte Addr & Slow Weights Output ///////////////
-    always_ff @(posedge clk or posedge reset) begin
+    always_ff @(posedge clk) begin
         if (reset) begin
             write_addr      <= 0;
             read_addr_buff  <= 0;
@@ -119,21 +122,18 @@ module synaptic_core #(
     end
 
     /////////////// Slow Weights Memory ///////////////
-    DualPortMemory #(
-        .DATA_WIDTH(INTEGER_BITS + FRACTIONAL_BITS),
-        .ADDR_WIDTH(12),
-        .DEPTH(N*N)
-    )Synaptic_Memory(
-        .clk(clk),
-        .reset(reset),
-        .read_en(read_en),
-        .read_addr(read_addr),
-        .read_data(ws_data),
-        .write_en(write_en),
-        .write_addr(write_addr),
-        .write_data(upd_ws)         
+    Synaptic_Memory your_instance_name (
+        .clka(clk),    // input wire clka
+        .ena(write_en),      // input wire ena
+        .wea(write_en),      // input wire [0 : 0] wea
+        .addra(write_addr),  // input wire [11 : 0] addra
+        .dina(upd_ws),    // input wire [15 : 0] dina
+        .clkb(clk),    // input wire clkb
+        .enb(read_en),      // input wire enb
+        .addrb(read_addr),  // input wire [11 : 0] addrb
+        .doutb(ws_data)  // output wire [15 : 0] doutb
     );
-    /////////////// Fast Weights Memory ///////////////
+//////////// Fast Weights Memory ///////////////
     /*DualPortMemory #(
         .DATA_WIDTH(INTEGER_BITS + FRACTIONAL_BITS),
         .ADDR_WIDTH(12),

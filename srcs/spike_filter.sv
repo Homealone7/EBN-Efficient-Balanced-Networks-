@@ -20,7 +20,7 @@ module spike_filter #(
     logic signed [INTEGER_BITS + FRACTIONAL_BITS -1:0] lambda_dt;
     logic signed [INTEGER_BITS + FRACTIONAL_BITS -1:0] leak;
     
-    always_ff @(posedge clk or posedge reset) begin
+    always_ff @(posedge clk) begin
         if (reset) begin
             done        <= 0;
             calculating <= 0;
@@ -34,7 +34,7 @@ module spike_filter #(
                 done        <= 0;
             end
             else if (calculating) begin
-                o_spike_f [index] = spike_leak;
+                o_spike_f [index] <= spike_leak;
                 index <= index + 1;
                 if (index == N - 1) begin
                     calculating <= 0;
@@ -65,7 +65,7 @@ module spike_filter #(
         .FRACTIONAL_BITS(FRACTIONAL_BITS)
     ) spike_f_leak (
         .a(leak), 
-        .b(i_spike_f[index < N ? index : N-1]), // Protect against out-of-bounds access
+        .b(i_spike_f[index]), // Protect against out-of-bounds access
         .result(spike_leak),
         .overflow()
     );

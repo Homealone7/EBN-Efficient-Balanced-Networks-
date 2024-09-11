@@ -27,9 +27,15 @@ module controller #(
 
     // Enable learning if the counter exceeds the threshold and learn_flg is set
     assign learn_en = (reset) ? 1'b0 : ((learning_cycle_counter > learn_thresh) && learn_flg) ? 1'b1 : 1'b0;
-    assign start_neuron = load_complete;
+
+    always_ff @(posedge clk) begin
+        if (reset) begin
+            start_neuron <= 0;
+        end
+        else start_neuron <= load_complete;
+    end
     // Manage the learning counter start (internal start_learning_counter)
-    always_ff @(posedge clk or posedge reset) begin
+    always_ff @(posedge clk) begin
         if (reset) begin
             synaptic_update_counter <= 0;
             start_learning_counter  <= 0;
@@ -53,7 +59,7 @@ module controller #(
     end
 
     // Manage learning enable logic (learn_en)
-    always_ff @(posedge clk or posedge reset) begin
+    always_ff @(posedge clk) begin
         if (reset) begin
             learning_cycle_counter <= 0;
         end
@@ -63,7 +69,7 @@ module controller #(
     end
 
     // Delay counter logic for synchronizing synaptic logic
-    always_ff @(posedge clk or posedge reset) begin
+    always_ff @(posedge clk) begin
         if (reset) begin
             sync_wait_counter <= 0;
             delay_counter     <= 0;
@@ -101,7 +107,7 @@ module controller #(
     end
 
     // Manage start_spike_filter signal (spike filter logic)
-    always_ff @(posedge clk or posedge reset) begin
+    always_ff @(posedge clk) begin
         if (reset) begin
             start_spike_filter <= 0;
             spike_filter_counter <= 0;
@@ -127,7 +133,7 @@ module controller #(
     end
 
     // Manage wait_spike signal (Wait for spike output)
-    always_ff @(posedge clk or posedge reset) begin
+    always_ff @(posedge clk) begin
         if (reset) begin
             wait_spike <= 0;
         end

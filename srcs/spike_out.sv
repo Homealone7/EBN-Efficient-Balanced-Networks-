@@ -17,7 +17,7 @@ module spike_out #(
     logic        [5:0]                                  max_pos;
     logic signed [INTEGER_BITS + FRACTIONAL_BITS - 1:0] max_pot;
 
-    always_ff @(posedge clk or posedge reset) begin
+    always_ff @(posedge clk) begin
         if (reset) begin
             done        <= 0;
             max_pot     <= 0;

@@ -17,7 +17,7 @@ module DualPortMemory #(
     integer i;
     logic signed [DATA_WIDTH-1:0] mem [0: DEPTH - 1];
     // Write operation
-    always_ff @(posedge clk or posedge reset) begin
+    always_ff @(posedge clk) begin
         if (reset) begin
             for (i = 0; i < DEPTH; i++) begin
                 mem[i] <= 0;

@@ -9,6 +9,7 @@ module memory_manager #(
     input  logic                                                load_trigger,   // Signal to start i_wf & i_cmd loading
     input  logic                                                init_signal,     // Signal to start initialization (from init module)
     output logic                                                load_complete,   // Flag to indicate loading completion
+    output logic                                                load_complete_wf,
     output logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_wf       [N],
     output logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_dec      [Dims * N],
     output logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] pot_thresh [N],
@@ -29,6 +30,7 @@ module memory_manager #(
     logic [5:0] randn_index;
     
     // BRAM address control for i_wf and i_cmd
+    logic        load_complete_cmd;
     logic        cmd_loading;
     logic [13:0] cmd_global_index;
     logic [0:0]  cmd_index;
@@ -68,7 +70,7 @@ module memory_manager #(
     );
 
     // Initialization logic for i_dec, pot_thresh, and randn
-    always_ff @(posedge clk or posedge reset) begin
+    always_ff @(posedge clk) begin
         if (reset) begin
             i_dec            <= '{default: '0};
             pot_thresh       <= '{default: '0};
@@ -101,15 +103,29 @@ module memory_manager #(
         end
     end
 
-    // Logic to update i_wf (64 elements, 1 per clock cycle)
-    always_ff @(posedge clk or posedge reset) begin
+    // Logic to update i_wf (64 elements, 1 per clock cycle) including init signal
+    always_ff @(posedge clk) begin
         if (reset) begin
             wf_index        <= 0;
             wf_global_index <= 0;
             wf_loading      <= 0;
+            load_complete_wf <= 0;
             i_wf            <= '{default: '0};
         end 
-        else if (load_trigger && !wf_loading) begin
+        else if (init_signal && !load_complete_wf) begin
+            // Load the first 64 elements when the init signal is active
+            if (wf_index < 63) begin
+                i_wf[wf_index] <= i_wf_data;  
+                wf_index <= wf_index + 1;
+            end 
+            else if (wf_index == 63) begin
+                i_wf[wf_index] <= i_wf_data;  // Load last element
+                load_complete_wf <= 1;
+                wf_index <= 0;  // Reset index for the next block
+                wf_global_index <= wf_global_index + 1;  // Move to next block of 64 elements
+            end
+        end 
+        else if (load_trigger && !wf_loading && load_complete_wf) begin
             wf_loading <= 1;  // Start loading when load_trigger is set
         end 
         else if (wf_loading) begin
@@ -126,15 +142,29 @@ module memory_manager #(
         end
     end
 
-    // Logic to update i_cmd (2 elements, 1 per clock cycle)
-    always_ff @(posedge clk or posedge reset) begin
+    // Logic to update i_cmd (2 elements, 1 per clock cycle) including init signal
+    always_ff @(posedge clk) begin
         if (reset) begin
             cmd_index        <= 0;
             cmd_global_index <= 0;
             cmd_loading      <= 0;
+            load_complete_cmd <= 0;
             i_cmd            <= '{default: '0};
         end 
-        else if (load_trigger && !cmd_loading) begin
+        else if (init_signal && !load_complete_cmd) begin
+            // Load the first 2 elements when the init signal is active
+            if (cmd_index == 0) begin
+                i_cmd[cmd_index] <= cmd_data;  // Load 1st element
+                cmd_index <= cmd_index + 1;
+            end 
+            else if (cmd_index == 1) begin
+                i_cmd[cmd_index] <= cmd_data;  // Load 2nd element
+                load_complete_cmd <= 1;
+                cmd_index <= 0;  // Reset index for the next block
+                cmd_global_index <= cmd_global_index + 1;  // Move to next block of 2 elements
+            end
+        end 
+        else if (load_trigger && !cmd_loading && load_complete_cmd) begin
             cmd_loading <= 1;
         end 
         else if (cmd_loading) begin

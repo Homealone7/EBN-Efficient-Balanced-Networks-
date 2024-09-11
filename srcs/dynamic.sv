@@ -27,7 +27,7 @@ module dynamic #(
     assign neg_dyn  = -dyn;
     assign temp1    = x0_dyn - i_x[0]; // x[1] = position, x[0] = velocity
 
-    always_ff @(posedge clk or posedge reset) begin
+    always_ff @(posedge clk) begin
         if (reset) begin
             o_x <= '{default: '0};
             done   <= 0;

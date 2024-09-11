@@ -29,7 +29,7 @@ module learn_rule #(
 
     assign dec_err = dec_err0 + dec_err1;
 
-    always_ff @(posedge clk or posedge reset) begin
+    always_ff @(posedge clk) begin
         if (reset) begin
             done   <= 0;
             index  <= 0;
@@ -43,7 +43,7 @@ module learn_rule #(
         else done <= 0;
     end
 
-    always_ff @(posedge clk or posedge reset) begin
+    always_ff @(posedge clk) begin
         if (reset) begin
             o_ws <= '{default: '0};
         end

@@ -32,7 +32,7 @@ module fixed_point_matrix_mult #(
         .overflow(mult_overflow)
     );
 
-    always_ff @(posedge clk or posedge reset) begin
+    always_ff @(posedge clk) begin
         if (reset) begin
             // Reset logic
             done <= 0;

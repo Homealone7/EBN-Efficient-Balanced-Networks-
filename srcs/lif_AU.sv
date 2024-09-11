@@ -67,7 +67,7 @@ module lif_AU #(
     state_t state, next_state;
 
     // State machine
-    always_ff @(posedge clk or posedge reset) begin
+    always_ff @(posedge clk) begin
         if (reset) begin
             state <= IDLE;
         end else begin
