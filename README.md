@@ -62,7 +62,10 @@ The project is organized as follows:
 - **ModelSim** or another Verilog simulation tool for running the testbenches.
 
 ## Credits
-This project is based on the MATLAB implementation of the **Efficient Balanced Networks (EBN)** model by **Professor Alireza Alemi**. The hardware translation and implementation were carried out under the supervision of **Professor Venkatesh Akella** as part of the task to port the model to an FPGA platform.
+This project is based on the MATLAB implementation of the **Efficient Balanced Networks (EBN)** model by **Professor Alireza Alemi**. The hardware translation and implementation were undertaken as the author’s master’s project, with periodic feedback and guidance from Professor Venkatesh Akella.
+
+## Author
+This project was developed and implemented by Mostafa Ibrahim as part of the author’s master’s project.
 
 ## License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
