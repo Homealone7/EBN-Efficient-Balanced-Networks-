@@ -15,9 +15,9 @@ This repository contains the hardware implementation of the **Efficient Balanced
 ## Overview
 This project implements an **Efficient Balanced Networks (EBN)** model in hardware, converting the original MATLAB model into an FPGA design using **Verilog/SystemVerilog**. The hardware implementation focuses on efficient use of FPGA resources while maintaining the accuracy of the model. The design includes:
 - **Synaptic Core** for learning and weight updates.
-- **Neuron Core** based on a Leaky Integrate-and-Fire (LIF) model.
+- **Neuron Core** for updating membrane potential and outputting spikes.
 - **Memory Manager** for handling data storage in BRAM.
-- **Spike Filter** for managing spike activity.
+- **Desired Dynamic** for calculating the error between the desired and estimated dynamics, providing crucial feedback for system adjustments.
 
 The design is optimized for deployment on the **Zynq-7000** series FPGA (or other compatible platforms).
 
