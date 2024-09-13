@@ -1,21 +1,22 @@
 module learn_rule #(
     parameter N                 = 64,
     parameter Dims              = 2,
-    parameter Eta_W             = 40'h 4CCCCCCC, // learning rate
-    parameter dt                = 40'h 68DB8,                                                         
-    parameter INTEGER_BITS      = 8,
-    parameter FRACTIONAL_BITS   = 32
+    parameter Eta_W             = 16'h 4CCC, // learning rate
+    parameter dt                = 16'h 68DB,                                                         
+    parameter INTEGER_BITS      = 5,
+    parameter FRACTIONAL_BITS   = 11
 ) (
-    input   logic                                                clk,
-    input   logic                                                reset,
-    input   logic                                                start,
-    input   logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] dec_t  [Dims],
-    input   logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_err  [Dims],             // Decoder * Error
-    input   logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_spike_f,           // Filtered Spike
-    input   logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_ws,                // Slow Weight from MEM
-    output  logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] upd_ws,                // Updated Slow Weight
-    output  logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] o_ws   [N],                // Updated Slow Weight
-    output  logic                                                done
+    input  logic                                                clk,
+    input  logic                                                reset,
+    input  logic                                                reset_iteration,
+    input  logic                                                start,
+    input  logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] dec_t  [Dims],
+    input  logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_err  [Dims],             // Decoder * Error
+    input  logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_spike_f,           // Filtered Spike
+    input  logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_ws,                // Slow Weight from MEM
+    output logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] upd_ws,                // Updated Slow Weight
+    output logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] o_ws   [N],                // Updated Slow Weight
+    output logic                                                done
 );
 
     logic                                               overflow;
@@ -30,7 +31,7 @@ module learn_rule #(
     assign dec_err = dec_err0 + dec_err1;
 
     always_ff @(posedge clk) begin
-        if (reset) begin
+        if (reset || reset_iteration) begin
             done   <= 0;
             index  <= 0;
             upd_ws <= 0;
@@ -44,7 +45,7 @@ module learn_rule #(
     end
 
     always_ff @(posedge clk) begin
-        if (reset) begin
+        if (reset || reset_iteration) begin
             o_ws <= '{default: '0};
         end
         else begin

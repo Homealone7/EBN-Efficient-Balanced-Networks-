@@ -11,28 +11,32 @@ module EBN #(
     parameter Three             = 16'h 3000,
     parameter Eta_W             = 16'h 4CCC, //learning rate
     parameter dt                = 16'h 68DB,
-    parameter learn_thresh      = 100,
+    parameter learn_thresh      = 1006,
     parameter learn_flg         = 1,
     parameter INTEGER_BITS      = 4,
     parameter FRACTIONAL_BITS   = 12,
     parameter A_ROWS            = 1,
     parameter B_COLS            = 1
 ) (
-    input   logic                                                 clk,
-    input   logic                                                 reset,
-    input   logic                                                 init_signal,
-    output  logic                                                 spike_flg,
-    output  logic                                                 done
+    input  logic                                                 clk,
+    input  logic                                                 reset,
+    input  logic                                                 init_signal,
+    output logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0]  o_pot,
+    output logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0]  o_err [Dims],
+    output logic                                                 spike_flg,
+    output logic                                                 done
 );
 
     integer i;
 
     // Signals from controller
     logic        [11:0]                                 delay_counter;
+    logic                                               reset_iteration;
     logic                                               learn_en;
     logic                                               start_spike_filter;
     logic                                               wait_spike;
     logic                                               start_neuron;
+    logic                                               load_trigger_cmd;
 
     // Signals from memory_manager
     logic signed [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_wf             [N];
@@ -41,7 +45,6 @@ module EBN #(
     logic signed [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_cmd            [Dims];
     logic signed [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_dec            [N* Dims];
     logic                                               load_complete;
-    logic                                               load_complete_wf;
 
     // Delayed Signals for Synaptic_core
     logic signed [INTEGER_BITS + FRACTIONAL_BITS - 1:0] old_spike_f_data [N];
@@ -57,15 +60,15 @@ module EBN #(
     logic                                               done_lif_AU; 
     logic                                               done_neuron;
     logic                                               done_spike;
-    logic                                               next_wf;
-    logic                                               next;
+    logic                                               next_ws;
+    logic                                               load_trigger_wf;
 
     // Signals from spike_filter
     logic signed [INTEGER_BITS + FRACTIONAL_BITS - 1:0] o_spike_f        [N];
     logic                                               done_spike_f;
     
     // Signals from Desired_Dynamic
-    logic signed [INTEGER_BITS + FRACTIONAL_BITS - 1:0] o_err            [Dims];
+    //logic signed [INTEGER_BITS + FRACTIONAL_BITS - 1:0] o_err            [Dims];
     logic                                               done_dyn; 
 
     // Signals for Spike_filter sync
@@ -74,7 +77,7 @@ module EBN #(
     
 
     always_ff @(posedge clk) begin
-        if (reset) begin
+        if (reset || reset_iteration) begin
             done               <= 0;
             done_spike_f_buff  <= 0;
         end
@@ -94,10 +97,12 @@ module EBN #(
     ) u_memory_manager (
         .clk(clk),
         .reset(reset),
-        .load_trigger(next_wf),        // Signal to start i_wf & i_cmd loading
-        .init_signal(init_signal),          // Initialization signal
-        .load_complete(load_complete),      // Load completion flag
-        .load_complete_wf(load_complete_wf),
+        .reset_iteration(reset_iteration),
+        .load_trigger_cmd(load_trigger_cmd),  // Signal to start i_cmd loading
+        .load_trigger_wf(load_trigger_wf),   // Signal to i_wf loading
+        .start_neuron(start_neuron),
+        .init_signal(init_signal),            // Initialization signal
+        .load_complete(load_complete),        // Load completion flag
         .i_wf(i_wf),
         .i_dec(i_dec),
         .pot_thresh(pot_thresh),
@@ -113,9 +118,11 @@ module EBN #(
         .clk(clk),                              
         .reset(reset),
         .load_complete(load_complete),
-        .next_synaptic_update(next),          // Signal from the neuron core indicating next synaptic update
+        .next_synaptic_update(next_ws),       // Signal from the neuron core indicating next synaptic update
         .neuron_processing_done(done_lif_AU), // Signal from neuron core indicating neuron processing is complete
         .done_spike(done_spike),              // Signal from neuron core indicating spike processing is complete
+        .reset_iteration(reset_iteration),
+        .load_trigger_cmd(load_trigger_cmd),
         .start_neuron(start_neuron),
         .learn_en(learn_en),                  // Output signal enabling learning
         .start_spike_filter(start_spike_filter),   // Start signal for spike filtering
@@ -139,6 +146,7 @@ module EBN #(
     )Neuron(
         .clk(clk),
         .reset(reset),
+        .reset_iteration(reset_iteration),
         .start(start_neuron),
         .wait_spike(wait_spike),
         .i_dec(i_dec),
@@ -149,11 +157,12 @@ module EBN #(
         .i_spike_f(spike_f_data),
         .pot_thresh(pot_thresh),
         .randn(randn),
+        .o_pot(o_pot),
         .spike_out_index(spike_out_index),
         .spike_pos(spike_pos),
         .spike_flg(spike_flg),
-        .next(next),
-        .next_wf(next_wf),
+        .next(next_ws),
+        .load_trigger_wf(load_trigger_wf),
         .done_lif_AU(done_lif_AU),
         .done_spike(done_spike),
         .done(done_neuron)
@@ -171,6 +180,7 @@ module EBN #(
     )synaptic_core(
         .clk(clk),
         .reset(reset),
+        .reset_iteration(reset_iteration),
         .learn_en(learn_en),
         .delay_counter(delay_counter),
         .i_dec(i_dec),
@@ -190,6 +200,7 @@ module EBN #(
     )spike_f(
         .clk(clk),
         .reset(reset),
+        .reset_iteration(reset_iteration),
         .start(start_spike_filter), 
         .i_spike_f(spike_f_data),    
         .o_spike_f(o_spike_f),    
@@ -209,6 +220,7 @@ module EBN #(
     )Dynamic(
         .clk(clk),
         .reset(reset),
+        .reset_iteration(reset_iteration),
         .start(done_spike_f_buff),
         .i_cmd(i_cmd),
         .i_dec(i_dec),
@@ -219,11 +231,10 @@ module EBN #(
     );
 
     always_ff @(posedge clk) begin
-        if (reset) begin
+        if (reset || reset_iteration) begin
             spike_f_data     <= '{default: '0};
             old_spike_f_data <= '{default: '0};
-            old_err[0]  <= 0;
-            old_err[1]  <= 0;
+            old_err          <= '{default: '0};
         end
         else begin
             if (spike_out_index == N - 1) begin

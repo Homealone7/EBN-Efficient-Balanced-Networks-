@@ -12,26 +12,19 @@ module EBN_tb;
     parameter Three             = 40'h 300000000;
     parameter Eta_W             = 40'h 4CCCCCCC; //learning rate
     parameter dt                = 40'h 68DB8;
-    parameter learn_thresh             = 1006;
+    parameter learn_thresh      = 1006;
     parameter learn_flg         = 1;
     parameter INTEGER_BITS      = 8;
     parameter FRACTIONAL_BITS   = 32;
     parameter A_ROWS            = 1;
     parameter B_COLS            = 1;
 
-    integer counter = 0, l = 2, count_done = 0, count_it = 1;
+    integer counter = 0, l = 0, count_done = 0, count_it = 1;
     logic                                                 clk;
     logic                                                 reset;
-    logic                                                 start_neuron;
-    logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0]  i_dec      [Dims * N];
-    logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0]  i_wf       [N * N];
-    logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0]  i_cmd_tmp  [Dims * 15000];
-    logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0]  pot_thresh    [N];
-    logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0]  randn      [N];
-    logic                                                 done;
-    logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] temp_weights [N * N]; // Temporary storage for weights
+    logic                                                 init_signal;
+    logic                                                 spike_flg;
     integer i = 0;
-    integer file0, file1, file2, file3, file4, file5, file6;
     
     EBN #(
         .N(N),
@@ -54,12 +47,9 @@ module EBN_tb;
         .B_COLS(B_COLS)
     )EBN(
         .clk(clk),
-        .start_neuron(start_neuron),
         .reset(reset),
-        .i_dec(i_dec),
-        .i_wf(i_wf),
-        .pot_thresh(pot_thresh),
-        .randn(randn),
+        .init_signal(init_signal),
+        .spike_flg(spike_flg),
         .done(done)
     );
 
@@ -74,59 +64,26 @@ module EBN_tb;
             $display("Completed Cycles: %0d", count_done); // Display the counter
         end
         if (EBN.Neuron.done_spike) begin
-            if (l >= 29998) begin
+            if (l >= 15000) begin
                 l <= 0;
                 count_it <= count_it + 1;
                 $display("Iteration Count: %0d", count_it); // Display the counter
             end
             else begin 
-                l <= l + 2; 
-                EBN.i_cmd[0] <= i_cmd_tmp[l];
-                EBN.i_cmd[1] <= i_cmd_tmp[l + 1];
+                l <= l + 1; 
             end
         end
     end
 
     initial begin
         clk = 0;
-        start_neuron = 0;
-        reset = 1;
-        $readmemb("Wf_f.txt", i_wf);
-        $readmemb("dec_f.txt", i_dec);
-        $readmemb("cmd_f.txt", i_cmd_tmp);
-        $readmemb("ran_f.txt", randn);
-        $readmemb("thres_f.txt", pot_thresh);              
+        reset = 1;            
         #10
         reset = 0;
-        start_neuron = 1;   
-        // Main loop for handling iterations and reset
-        while (count_it <= 3) begin
-            @(posedge EBN.Neuron.done_spike); // Wait for spike completion
-            if (l >= 29998) begin
-                // Store the current weights before reset
-                for (int i = 0; i < N * N; i++) begin
-                    temp_weights[i] = EBN.synaptic_core.Synaptic_Memory.mem[i];
-                end
-                $display("Weights Stored");
-                // Assert reset
-                reset = 1;
-                $readmemb("Wf_f.txt", i_wf);
-                $readmemb("dec_f.txt", i_dec);
-                $readmemb("cmd_f.txt", i_cmd_tmp);
-                $readmemb("ran_f.txt", randn);
-                $readmemb("thres_f.txt", pot_thresh);  
-                #10;
-                reset = 0;
-                $display("Reset Complete");
-                // Restore the weights after reset
-                for (int i = 0; i < N * N; i++) begin
-                    EBN.synaptic_core.Synaptic_Memory.mem[i] = temp_weights[i];
-                end
-                $display("Weights Retored");
-            end 
+        init_signal = 1;
+        if (EBN.u_memory_manager.load_complete) begin
+            init_signal = 0;
         end
-        $display("Simulation completed after 100 iterations.");
-        $finish;
     end
 
 endmodule
@@ -144,6 +101,7 @@ endmodule
         $fclose(file3);
         $fclose(file4);
         $fclose(file5);
+        integer file0, file1, file2, file3, file4, file5, file6;
     */
         
         /*always_ff @(posedge clk) begin

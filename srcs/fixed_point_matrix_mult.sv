@@ -5,14 +5,15 @@ module fixed_point_matrix_mult #(
     parameter B_COLS = 1,
     parameter A_COLS_B_ROWS = 2 // A's columns and B's rows must be the same
 )(
-    input   logic clk,
-    input   logic reset,
-    input   logic start, // Start signal to control the start of computation
-    input   logic signed [INTEGER_BITS + FRACTIONAL_BITS - 1:0] A[A_ROWS * A_COLS_B_ROWS],
-    input   logic signed [INTEGER_BITS + FRACTIONAL_BITS - 1:0] B[A_COLS_B_ROWS * B_COLS],
-    output  logic signed [INTEGER_BITS + FRACTIONAL_BITS - 1:0] C[A_ROWS * B_COLS],
-    output  logic next,
-    output  logic done // Indicates when the matrix multiplication is complete
+    input  logic clk,
+    input  logic reset,
+    input  logic reset_iteration,
+    input  logic start, // Start signal to control the start of computation
+    input  logic signed [INTEGER_BITS + FRACTIONAL_BITS - 1:0] A[A_ROWS * A_COLS_B_ROWS],
+    input  logic signed [INTEGER_BITS + FRACTIONAL_BITS - 1:0] B[A_COLS_B_ROWS * B_COLS],
+    output logic signed [INTEGER_BITS + FRACTIONAL_BITS - 1:0] C[A_ROWS * B_COLS],
+    output logic next,
+    output logic done // Indicates when the matrix multiplication is complete
 );
 
     integer i = 0, j = 0, k = 0;
@@ -33,26 +34,26 @@ module fixed_point_matrix_mult #(
     );
 
     always_ff @(posedge clk) begin
-        if (reset) begin
+        if (reset || reset_iteration) begin
             // Reset logic
-            done <= 0;
-            next <= 0;
+            done        <= 0;
+            next        <= 0;
             in_progress <= 0;
-            i <= 0;
-            j <= 0;
-            k <= 0;
-            sum <= 0;
+            i           <= 0;
+            j           <= 0;
+            k           <= 0;
+            sum         <= 0;
             for (int row = 0; row < A_ROWS; row++) begin
                 for (int col = 0; col < B_COLS; col++) begin
                     C[row * B_COLS + col] <= 0;
                 end
             end
         end else begin
+            if (next) begin
+                next    <= 0;
+            end
             if (start && !in_progress) begin
                 in_progress <= 1; // Start computation
-            end
-            if (next) begin
-                next <= 0;
             end
             if (in_progress) begin
                 if (i < A_ROWS) begin
@@ -60,7 +61,7 @@ module fixed_point_matrix_mult #(
                         if (k < A_COLS_B_ROWS) begin
                             if (i == A_ROWS - 1 && j == B_COLS - 1 && k == A_COLS_B_ROWS - 1) begin
                                 next <= 1; // Signal next one cycle before done
-                            end 
+                            end
                             // Accumulate multiplication result
                             if (k == 0) sum <= mult_result;
                             else sum <= sum + mult_result;
@@ -85,8 +86,8 @@ module fixed_point_matrix_mult #(
                 end
             end 
             else begin
-                done <= 0; // Ensure done is low when start is not asserted
-                next <= 0;
+                done        <= 0; // Ensure done is low when start is not asserted
+                next        <= 0;
             end
         end
     end

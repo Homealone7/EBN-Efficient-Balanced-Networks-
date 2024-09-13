@@ -17,4 +17,4 @@ def bin_txt_to_coe(input_file, output_file, radix=2):
                 f.write(";\n")  # Semicolon to end the vector
 
 # Example usage:
-bin_txt_to_coe("thres_f.txt", "Pot_Threshold.coe", radix=2)
+bin_txt_to_coe("Wf_f.txt", "Wf.coe", radix=2)

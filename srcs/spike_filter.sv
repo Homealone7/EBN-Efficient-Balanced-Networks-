@@ -1,17 +1,18 @@
 module spike_filter #(
     parameter N                 = 64,
-    parameter Lambda            = 40'hA00000000,
-    parameter dt                = 40'h68DB8,
-    parameter One               = 40'h100000000,
-    parameter INTEGER_BITS      = 8,
-    parameter FRACTIONAL_BITS   = 32
+    parameter Lambda            = 16'h A000,
+    parameter dt                = 16'h 68DB,
+    parameter One               = 16'h 1000,
+    parameter INTEGER_BITS      = 5,
+    parameter FRACTIONAL_BITS   = 11
 ) (
-    input   logic                                                clk,
-    input   logic                                                reset,
-    input   logic                                                start,
-    input   logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_spike_f  [N],    // Filtered Spikes from MEM
-    output  logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] o_spike_f  [N],    // Updated Filtered Spikes
-    output  logic                                                done
+    input  logic                                                clk,
+    input  logic                                                reset,
+    input  logic                                                reset_iteration,
+    input  logic                                                start,
+    input  logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_spike_f  [N],    // Filtered Spikes from MEM
+    output logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] o_spike_f  [N],    // Updated Filtered Spikes
+    output logic                                                done
 ); 
 
     logic                                              calculating;
@@ -21,7 +22,7 @@ module spike_filter #(
     logic signed [INTEGER_BITS + FRACTIONAL_BITS -1:0] leak;
     
     always_ff @(posedge clk) begin
-        if (reset) begin
+        if (reset || reset_iteration) begin
             done        <= 0;
             calculating <= 0;
             index       <= 0;

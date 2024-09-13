@@ -3,20 +3,21 @@ module synaptic_core #(
     parameter Dims              = 2,
     parameter Eta_W             = 16'h 4CCC,
     parameter dt                = 16'h 68DB,
-    parameter learn_thresh      = 100,
+    parameter learn_thresh      = 1006,
     parameter learn_flg         = 1,                                                      
-    parameter INTEGER_BITS      = 4,
-    parameter FRACTIONAL_BITS   = 12
+    parameter INTEGER_BITS      = 5,
+    parameter FRACTIONAL_BITS   = 11
 )(
-    input   logic                                                clk,
-    input   logic                                                reset,
-    input   logic         [11:0]                                 delay_counter,
-    input   logic                                                learn_en,
-    input   logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_dec      [Dims * N],
-    input   logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_err      [Dims],     // Calculation error
-    input   logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_spike_f  [N],
-    output  logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] o_ws       [N],        // Slow Weights
-    output  logic                                                done 
+    input  logic                                                clk,
+    input  logic                                                reset,
+    input  logic                                                reset_iteration,
+    input  logic         [11:0]                                 delay_counter,
+    input  logic                                                learn_en,
+    input  logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_dec      [Dims * N],
+    input  logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_err      [Dims],     // Calculation error
+    input  logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_spike_f  [N],
+    output logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] o_ws       [N],        // Slow Weights
+    output logic                                                done 
 );
 
     logic                                               write_en;
@@ -33,12 +34,12 @@ module synaptic_core #(
     logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0] spike_f_tmp;
     logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0] upd_ws;
     
-    assign read_en  = (!learn_en)? 1'b0 : (delay_counter == 0 || delay_counter == 65)? 1'b0 : 1'b1;
+    assign read_en  = (!learn_en)? 1'b0 : (delay_counter == 0 || delay_counter == 1 || delay_counter == 66)? 1'b0 : 1'b1;
     assign write_en = done_learn;
 
     /////////////// Output ///////////////
     always_ff @(posedge clk) begin
-        if (reset)
+        if (reset || reset_iteration)
             done        <= 0;
         else begin
             if (index_ws >= N - 1)
@@ -49,40 +50,33 @@ module synaptic_core #(
     end
     /////////////// Decoder Transpose & Read Addr ///////////////
     always_ff @(posedge clk) begin
-        if (reset) begin
+        if (reset || reset_iteration) begin
             index_ws      <= 0;
             index_spike_f <= 0;
             read_addr     <= 0;
             start         <= 0;
             spike_f_tmp   <= 0;
-            dec_t[0]      <= 0;
-            dec_t[1]      <= 0;
+            dec_t         <= '{default : '0};
         end
         else begin
-            spike_f_tmp   <= i_spike_f[0];
-            dec_t[0]      <= i_dec[0];
-            dec_t[1]      <= i_dec[64];
             if (learn_en) begin
-                if (delay_counter != 0 && delay_counter != 65) read_addr   <= read_addr + 1;
-                if (delay_counter == 1) begin
-                    if (index_spike_f >= N - 1) begin
-                        index_spike_f <= 0;
-                    end
-                    else index_spike_f <= index_spike_f + 1;
-                    start       <= 1;
-                    index_ws    <= 0;
-                    spike_f_tmp <= i_spike_f[index_spike_f];
-                    dec_t[0]    <= i_dec[0];
-                    dec_t[1]    <= i_dec[64];
+                if (delay_counter != 0 && delay_counter != 1 && delay_counter != 66) read_addr   <= read_addr + 1;
+                if (delay_counter == 2) begin
+                    start           <= 1;
+                    index_ws        <= 1;
+                    index_spike_f   <= index_spike_f + 1;
+                    spike_f_tmp     <= i_spike_f[index_spike_f];
+                    dec_t[0]        <= i_dec[0];
+                    dec_t[1]        <= i_dec[64];
                 end
                 else begin
-                    if (delay_counter >= N + 1) begin
+                    if (delay_counter >= N + 2) begin
                         start       <= 0;
                     end
-                    if (delay_counter != 0 && delay_counter != 1 && delay_counter != 65) begin
+                    if (delay_counter != 0 && delay_counter != 1 && delay_counter != 66) begin
                         index_ws    <= index_ws + 1;
-                        dec_t[0]    <= i_dec[index_ws + 1];
-                        dec_t[1]    <= i_dec[index_ws + 65];
+                        dec_t[0]    <= i_dec[index_ws];
+                        dec_t[1]    <= i_dec[index_ws + 64];
                     end        
                 end
             end
@@ -99,6 +93,7 @@ module synaptic_core #(
     )learn_calc(
         .clk(clk),
         .reset(reset),
+        .reset_iteration(reset_iteration),
         .start(start),
         .dec_t(dec_t),
         .i_err(i_err),
@@ -111,7 +106,7 @@ module synaptic_core #(
     
     /////////////// Wirte Addr & Slow Weights Output ///////////////
     always_ff @(posedge clk) begin
-        if (reset) begin
+        if (reset || reset_iteration) begin
             write_addr      <= 0;
             read_addr_buff  <= 0;
         end
@@ -122,7 +117,7 @@ module synaptic_core #(
     end
 
     /////////////// Slow Weights Memory ///////////////
-    Synaptic_Memory your_instance_name (
+    Synaptic_Memory u_synaptic_mem (
         .clka(clk),    // input wire clka
         .ena(write_en),      // input wire ena
         .wea(write_en),      // input wire [0 : 0] wea

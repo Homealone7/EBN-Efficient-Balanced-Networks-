@@ -1,34 +1,35 @@
 module lif_AU #(
     parameter N                 = 64,
     parameter Dims              = 2,
-    parameter NzMemb            = 40'h 68DB8,
-    parameter Gain_D            = 40'h 400000,
-    parameter LambdaV           = 40'h 32000,
-    parameter One               = 40'h 10000,
-    parameter K                 = 40'h 20C4,
-    parameter dt                = 40'h 6,
-    parameter INTEGER_BITS      = 8,
-    parameter FRACTIONAL_BITS   = 32,
+    parameter NzMemb            = 16'h 68DB,
+    parameter Gain_D            = 16'h 4000,
+    parameter LambdaV           = 16'h 3200,
+    parameter One               = 16'h 1000,
+    parameter K                 = 16'h 20C4,
+    parameter dt                = 16'h 6000,
+    parameter INTEGER_BITS      = 5,
+    parameter FRACTIONAL_BITS   = 11,
     parameter A_ROWS            = 1,
     parameter B_COLS            = 1
 )(
-    input   logic                                                clk,
-    input   logic                                                reset,
-    input   logic                                                start,
-    input   logic                                                wait_spike,
-    input   logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_pot,                  // membrane potential state from  mem
-    input   logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_dec_t     [Dims],     // Transposed Decoder
-    input   logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_cmd       [Dims],     // Commands
-    input   logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_err       [Dims],     // Calculation error
-    input   logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_wf        [N],        // Fast Weights
-    input   logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_ws        [N],        // Slow Weights
-    input   logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_spike     [N],        // Spikes
-    input   logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_spike_f   [N],        // Filtered Spikes
-    input   logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] randn,
-    output  logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] o_pot,                  // Memberane potential
-    output  logic                                                start_w,
-    output  logic                                                next,
-    output  logic                                                done    
+    input  logic                                                clk,
+    input  logic                                                reset,
+    input  logic                                                reset_iteration,
+    input  logic                                                start,
+    input  logic                                                wait_spike,
+    input  logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_pot,                  // membrane potential state from  mem
+    input  logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_dec_t     [Dims],     // Transposed Decoder
+    input  logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_cmd       [Dims],     // Commands
+    input  logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_err       [Dims],     // Calculation error
+    input  logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_wf        [N],        // Fast Weights
+    input  logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_ws        [N],        // Slow Weights
+    input  logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_spike     [N],        // Spikes
+    input  logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_spike_f   [N],        // Filtered Spikes
+    input  logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] randn,
+    output logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] o_pot,                  // Memberane potential
+    output logic                                                start_w,
+    output logic                                                next,
+    output logic                                                done    
 );
     //start_w to controller, controller counts 2 cycles then sets singal from mem update (i_wf, i_cmd)
     // Init i_wf and icmd, also maybe just use start ws and use a ff to delay it
@@ -39,6 +40,8 @@ module lif_AU #(
     logic                                              next_dec;
     logic                                              start_dec;
     //logic                                              start_w;
+    logic                                              start_dec_reg;
+    logic                                              start_w_reg;
     logic signed [INTEGER_BITS + FRACTIONAL_BITS -1:0] leak_str;
     logic signed [INTEGER_BITS + FRACTIONAL_BITS -1:0] pot_leak;
     logic signed [INTEGER_BITS + FRACTIONAL_BITS -1:0] lambdaV_dt;
@@ -54,8 +57,6 @@ module lif_AU #(
 
     assign leak_str = One - lambdaV_dt;
     assign o_pot = pot_leak + o_dec_cmd[0] + o_wf_spike[0] + ws_spike_f_dt + dec_err_k + noise_randn;
-    assign done = done_ws_spike_f;
-
     
     typedef enum logic [1:0] {
         IDLE,
@@ -68,10 +69,17 @@ module lif_AU #(
 
     // State machine
     always_ff @(posedge clk) begin
-        if (reset) begin
-            state <= IDLE;
-        end else begin
-            state <= next_state;
+        if (reset || reset_iteration) begin
+            state         <= IDLE;
+            start_dec_reg <= 0;
+            start_w_reg   <= 0;
+            done          <= 0;
+        end 
+        else begin
+            state         <= next_state;
+            start_dec_reg <= start_dec;
+            start_w_reg   <= start_w;
+            done          <= done_ws_spike_f;
         end
     end
 
@@ -101,7 +109,7 @@ module lif_AU #(
                     next_state = WAIT_SPIKE;
                 end
                 else begin
-                    if (done_ws_spike_f) begin
+                    if (done) begin
                         start_dec  = 1;
                         start_w    = 1;
                         next_state = START_DEC;
@@ -125,7 +133,8 @@ module lif_AU #(
     ) dec_cmd (
         .clk(clk),
         .reset(reset),
-        .start(start_dec),
+        .reset_iteration(reset_iteration),
+        .start(start_dec_reg),
         .done(done_dec_cmd),
         .next(next_dec),
         .A(i_dec_t),
@@ -142,7 +151,8 @@ module lif_AU #(
     ) dec_err (
         .clk(clk),
         .reset(reset),
-        .start(start_dec),
+        .reset_iteration(reset_iteration),
+        .start(start_dec_reg),
         .done(done_dec_err),
         .next(),
         .A(i_dec_t),
@@ -159,7 +169,8 @@ module lif_AU #(
     ) wf_spike (
         .clk(clk),
         .reset(reset),
-        .start(start_w),
+        .reset_iteration(reset_iteration),
+        .start(start_w_reg),
         .done(done_wf_spike),
         .next(),
         .A(i_wf),
@@ -176,6 +187,7 @@ module lif_AU #(
     ) ws_spike_f (
         .clk(clk),
         .reset(reset),
+        .reset_iteration(reset_iteration),
         .start(start_w),
         .done(done_ws_spike_f),
         .next(next),
