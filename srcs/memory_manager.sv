@@ -116,6 +116,7 @@ module memory_manager #(
             // Load Complete
             if (dec_index == ((Dims * N) - 1)) begin
                 load_complete <= 1;  // Set load_complete when everything is loaded
+                dec_en        <= 0;
             end
         end
     end
@@ -156,6 +157,8 @@ module memory_manager #(
             // Load Complete
             if (pot_thresh_index == N - 1) begin
                 load_complete_thr <= 1;
+                pot_thresh_en     <= 0;
+                randn_en          <= 0;
             end
         end
     end
