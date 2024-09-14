@@ -1,5 +1,5 @@
 module EBN #(
-    /*parameter N                 = 64,
+    parameter N                 = 64,
     parameter Dims              = 2,
     parameter dyn               = 16'h 8000,
     parameter NzMemb            = 16'h 68DB,
@@ -16,24 +16,6 @@ module EBN #(
     parameter INTEGER_BITS      = 4,
     parameter FRACTIONAL_BITS   = 12,
     parameter A_ROWS            = 1,
-    parameter B_COLS            = 1*/
-    parameter N                 = 64,
-    parameter Dims              = 2,
-    parameter NzMemb            = 40'h 68DB8,
-    parameter Gain_D            = 40'h 2000000,
-    parameter K                 = 40'h 20C49B,
-    parameter LambdaV           = 40'h 3200000000,
-    parameter Lambda            = 40'h A00000000,
-    parameter dyn               = 40'h 800000000,
-    parameter One               = 40'h 100000000,
-    parameter Three             = 40'h 300000000,
-    parameter Eta_W             = 40'h 4CCCCCCC, //learning rate
-    parameter dt                = 40'h 68DB8,
-    parameter learn_thresh      = 1006,
-    parameter learn_flg         = 1,
-    parameter INTEGER_BITS      = 8,
-    parameter FRACTIONAL_BITS   = 32,
-    parameter A_ROWS            = 1,
     parameter B_COLS            = 1
 ) (
     input  logic                                                 clk,
@@ -43,6 +25,9 @@ module EBN #(
     output logic                                                 done
 );
 
+    /*
+        Design running at 50MHz, longest path in synaptic core learn module, can pipeline the multiplications (add 1 or 2 ff to run at faster freq)
+    */
     integer i;
 
     // Signals from controller
