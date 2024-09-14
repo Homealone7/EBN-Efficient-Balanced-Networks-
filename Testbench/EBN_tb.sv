@@ -78,7 +78,7 @@ module EBN_tb;
     initial begin
         clk = 0;
         reset = 1;            
-        #10
+        #20
         reset = 0;
         init_signal = 1;
         if (EBN.u_memory_manager.load_complete) begin

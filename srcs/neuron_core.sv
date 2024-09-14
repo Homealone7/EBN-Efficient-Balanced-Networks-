@@ -25,7 +25,6 @@ module neuron_core #(
     input  logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_spike_f  [N],
     input  logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] pot_thresh [N],
     input  logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] randn      [N],
-    output logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] o_pot,
     output logic         [5:0]                                  spike_out_index,
     output logic         [5:0]                                  spike_pos,
     output logic                                                spike_flg, // Spike happened if = 1;
@@ -44,7 +43,7 @@ module neuron_core #(
     logic         [5:0]                                  write_addr;
     logic         [5:0]                                  prev_index;
     logic         [6:0]                                  index;
-    //logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] o_pot;
+    logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] o_pot;
     logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] randn_tmp;
     logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] neur_data;
     logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] pot_thresh_diff;

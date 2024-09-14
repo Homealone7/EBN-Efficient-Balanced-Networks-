@@ -32,6 +32,7 @@ module controller #(
     always_ff @(posedge clk) begin
         if (reset || reset_iteration) begin
             reset_iteration_counter <= 0;
+            reset_iteration         <= 0;
         end
         else begin
             if (done_spike) begin
@@ -45,7 +46,23 @@ module controller #(
         end  
     end
 
-    // Enable learning if the counter exceeds the threshold and learn_flg is set
+    // Signal to start Neuron Core 
+    always_ff @(posedge clk) begin
+        if (reset || reset_iteration) begin
+            start_neuron <= 0;
+        end
+        else start_neuron <= load_complete;
+    end
+
+    // Manage learning enable logic
+    always_ff @(posedge clk) begin
+        if (reset || reset_iteration) begin
+            learning_cycle_counter <= 0;
+        end
+        else if (start_learning_counter && !learn_en) begin
+            learning_cycle_counter <= learning_cycle_counter + 1;
+        end
+    end
     always_ff @(posedge clk) begin
         if (reset || reset_iteration) begin
             learn_en     <= 0;
@@ -56,13 +73,7 @@ module controller #(
             end
         end
     end
-
-    always_ff @(posedge clk) begin
-        if (reset || reset_iteration) begin
-            start_neuron <= 0;
-        end
-        else start_neuron <= load_complete;
-    end
+    
     // Manage the learning counter start
     always_ff @(posedge clk) begin
         if (reset || reset_iteration) begin
@@ -85,33 +96,6 @@ module controller #(
                 start_learning_counter <= 0;
             end
         end             
-    end
-
-    // Manage learning enable logic (learn_en)
-    always_ff @(posedge clk) begin
-        if (reset || reset_iteration) begin
-            learning_cycle_counter <= 0;
-        end
-        else if (start_learning_counter && !learn_en) begin
-            learning_cycle_counter <= learning_cycle_counter + 1;
-        end
-    end
-
-    // Load trigger for cmd Mem
-    always_ff @(posedge clk) begin
-        if (reset || reset_iteration) begin
-            load_trigger_counter <= 0;
-            load_trigger_cmd     <= 0;
-        end
-        else begin
-            if (neuron_processing_done) begin
-                if (load_trigger_counter >= N - 1) begin
-                    load_trigger_cmd <= 1;
-                end
-                load_trigger_counter <= load_trigger_counter + 1;
-            end
-            else load_trigger_cmd <= 0;
-        end
     end
 
     // Delay counter logic for synchronizing synaptic logic
@@ -137,6 +121,23 @@ module controller #(
                     else delay_counter <= delay_counter + 1;
                 end
             end
+        end
+    end
+
+    // Load trigger for cmd Mem
+    always_ff @(posedge clk) begin
+        if (reset || reset_iteration) begin
+            load_trigger_counter <= 0;
+            load_trigger_cmd     <= 0;
+        end
+        else begin
+            if (neuron_processing_done) begin
+                if (load_trigger_counter >= N - 1) begin
+                    load_trigger_cmd <= 1;
+                end
+                load_trigger_counter <= load_trigger_counter + 1;
+            end
+            else load_trigger_cmd <= 0;
         end
     end
 

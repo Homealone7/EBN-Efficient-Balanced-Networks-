@@ -155,7 +155,7 @@ module memory_manager #(
             end
             // Load Complete
             if (pot_thresh_index == N - 1) begin
-                load_complete_thr <= 1;  // Set load_complete when everything is loaded
+                load_complete_thr <= 1;
             end
         end
     end
