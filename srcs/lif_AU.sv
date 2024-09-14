@@ -40,7 +40,7 @@ module lif_AU #(
     logic                                              next_dec;
     logic                                              start_dec;
     //logic                                              start_w;
-    logic                                              start_dec_reg;
+    //logic                                              start_dec_reg;
     logic                                              start_w_reg;
     logic signed [INTEGER_BITS + FRACTIONAL_BITS -1:0] leak_str;
     logic signed [INTEGER_BITS + FRACTIONAL_BITS -1:0] pot_leak;
@@ -71,13 +71,13 @@ module lif_AU #(
     always_ff @(posedge clk) begin
         if (reset || reset_iteration) begin
             state         <= IDLE;
-            start_dec_reg <= 0;
+            //start_dec_reg <= 0;
             start_w_reg   <= 0;
             done          <= 0;
         end 
         else begin
             state         <= next_state;
-            start_dec_reg <= start_dec;
+            //start_dec_reg <= start_dec;
             start_w_reg   <= start_w;
             done          <= done_ws_spike_f;
         end
@@ -134,7 +134,7 @@ module lif_AU #(
         .clk(clk),
         .reset(reset),
         .reset_iteration(reset_iteration),
-        .start(start_dec_reg),
+        .start(start_w_reg),
         .done(done_dec_cmd),
         .next(next_dec),
         .A(i_dec_t),
@@ -152,7 +152,7 @@ module lif_AU #(
         .clk(clk),
         .reset(reset),
         .reset_iteration(reset_iteration),
-        .start(start_dec_reg),
+        .start(start_w_reg),
         .done(done_dec_err),
         .next(),
         .A(i_dec_t),
@@ -188,7 +188,7 @@ module lif_AU #(
         .clk(clk),
         .reset(reset),
         .reset_iteration(reset_iteration),
-        .start(start_w),
+        .start(start_w_reg),
         .done(done_ws_spike_f),
         .next(next),
         .A(i_ws),
