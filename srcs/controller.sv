@@ -1,48 +1,51 @@
 module controller #(
     parameter N             = 64,
-    parameter learn_thresh  = 1006,   // Threshold for enabling learning
-    parameter learn_flg     = 1       // Flag to enable or disable learning
+    parameter learn_flg     = 1;
+    parameter learn_thresh  = 1006   // Threshold for enabling learning  
 )(
     input  logic        clk,
     input  logic        reset,
     input  logic        load_complete,
+    //input  logic        learn_flg,              // Flag to enable or disable learning
     input  logic        next_synaptic_update,   // Signal to start the next synaptic update
     input  logic        neuron_processing_done, // Done signal from LIF in neuron_core
+    input  logic        done_dyn,
     input  logic        done_spike,             // Done signal from spike processing
     output logic        reset_iteration,        // Internal Reset Signal
     output logic        load_trigger_cmd,       // Command load trigger
     output logic        start_neuron,           // Start Nueron Core
     output logic        learn_en,               // Enable learning process       
     output logic        start_spike_filter,     // Start signal for spike filtering
-    output logic        wait_spike,             // Signal indicating wait for spike output
-    output logic [11:0] delay_counter           // Delay counter to synchronize synaptic logic
+    output logic        wait_spike              // Signal indicating wait for spike output
 );
 
     // Internal signals
-    logic [13:0]    learning_cycle_counter;     // Learning counter
-    logic [13:0]    reset_iteration_counter;    // Synaptic weight update counter
-    logic [6:0]     synaptic_update_counter;    // Synaptic weight update counter
-    logic [6:0]     spike_filter_counter;       // Spike filter counter
-    logic [5:0]     load_trigger_counter;       // Command load trigger counter
-    logic [1:0]     sync_wait_counter;          // Wait counter for delay             
-    logic           start_learning_counter;     // Internal signal to start learning counter
-    logic           buff, buff_2;               // Buffer for spike filtering start signal           
+    logic [13:0] learning_cycle_counter;     // Learning counter
+    logic [13:0] reset_iteration_counter;    // Synaptic weight update counter
+    logic [6:0]  synaptic_update_counter;    // Synaptic weight update counter
+    logic [6:0]  spike_filter_counter;       // Spike filter counter
+    logic [5:0]  load_trigger_counter;       // Command load trigger counter           
+    logic        reset_iteration_reg;
+    logic        start_learning_counter;     // Internal signal to start learning counter
+    logic        buff, buff_2;               // Buffer for spike filtering start signal           
     
     // Reset After 1 learning iteration
     always_ff @(posedge clk) begin
         if (reset || reset_iteration) begin
             reset_iteration_counter <= 0;
             reset_iteration         <= 0;
+            reset_iteration_reg     <= 0;
         end
         else begin
-            if (done_spike) begin
+            reset_iteration <= reset_iteration_reg;
+            if (done_dyn) begin
                 if (reset_iteration_counter == 15000) begin
                     reset_iteration_counter <= 0;
-                    reset_iteration         <= 1;
+                    reset_iteration_reg         <= 1;
                 end
                 else reset_iteration_counter <= reset_iteration_counter + 1;
             end
-            else    reset_iteration        <= 0;
+            else    reset_iteration_reg        <= 0;
         end  
     end
 
@@ -98,32 +101,6 @@ module controller #(
         end             
     end
 
-    // Delay counter logic for synchronizing synaptic logic
-    always_ff @(posedge clk) begin
-        if (reset || reset_iteration) begin
-            sync_wait_counter <= 0;
-            delay_counter     <= 0;
-        end 
-        else begin
-            if (buff && spike_filter_counter == N - 2) begin
-                sync_wait_counter <= 2;
-                delay_counter     <= 0;
-            end 
-            else if (sync_wait_counter > 0) begin
-                sync_wait_counter <= sync_wait_counter - 1;
-                delay_counter     <= 0;
-            end
-            else begin
-                if (learn_en) begin
-                    if (delay_counter >= N + 2) begin
-                        delay_counter <= 0;
-                    end 
-                    else delay_counter <= delay_counter + 1;
-                end
-            end
-        end
-    end
-
     // Load trigger for cmd Mem
     always_ff @(posedge clk) begin
         if (reset || reset_iteration) begin
@@ -131,7 +108,7 @@ module controller #(
             load_trigger_cmd     <= 0;
         end
         else begin
-            if (neuron_processing_done) begin
+            if (next_synaptic_update) begin
                 if (load_trigger_counter >= N - 1) begin
                     load_trigger_cmd <= 1;
                 end

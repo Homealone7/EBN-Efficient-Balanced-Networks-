@@ -38,9 +38,6 @@ module lif_AU #(
     logic                                              done_wf_spike;
     logic                                              done_ws_spike_f;
     logic                                              next_dec;
-    logic                                              start_dec;
-    //logic                                              start_w;
-    //logic                                              start_dec_reg;
     logic                                              start_w_reg;
     logic signed [INTEGER_BITS + FRACTIONAL_BITS -1:0] leak_str;
     logic signed [INTEGER_BITS + FRACTIONAL_BITS -1:0] pot_leak;
@@ -71,51 +68,43 @@ module lif_AU #(
     always_ff @(posedge clk) begin
         if (reset || reset_iteration) begin
             state         <= IDLE;
-            //start_dec_reg <= 0;
             start_w_reg   <= 0;
             done          <= 0;
         end 
         else begin
             state         <= next_state;
-            //start_dec_reg <= start_dec;
             start_w_reg   <= start_w;
             done          <= done_ws_spike_f;
         end
     end
 
     always_comb begin
-        start_dec = 0;
         start_w = 0;
         next_state = state;
         case (state)
             IDLE: begin
                 if (start) begin
-                    start_dec  = 1;
                     start_w    = 1;
                     next_state = START_DEC;
                 end
             end
             WAIT_SPIKE: begin
                 if (!wait_spike) begin
-                    start_dec  = 1;
                     start_w    = 1;
                     next_state = START_DEC;
                 end
             end
             START_DEC: begin
                 if (wait_spike) begin
-                    start_dec  = 0;
                     start_w    = 0;
                     next_state = WAIT_SPIKE;
                 end
                 else begin
                     if (done) begin
-                        start_dec  = 1;
                         start_w    = 1;
                         next_state = START_DEC;
                     end
                     else begin
-                        start_dec  = 0;
                         start_w    = 0;
                         next_state = START_DEC;
                     end

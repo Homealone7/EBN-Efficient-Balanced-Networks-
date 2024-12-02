@@ -1,18 +1,18 @@
 module spike_out #(
     parameter N                 = 64,
-    parameter INTEGER_BITS      = 5,
-    parameter FRACTIONAL_BITS   = 11
+    parameter INTEGER_BITS      = 8,
+    parameter FRACTIONAL_BITS   = 32
 ) (
-    input  logic                                                clk,
-    input  logic                                                reset,
-    input  logic                                                reset_iteration,
-    input  logic                                                start,
-    input  logic         [5:0]                                  index,
-    input  logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] pot_thresh_diff,
-    output logic                                                spike_flg, // Spike happened if = 1;
-    output logic         [5:0]                                  spike_pos,
-    output logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] o_spike[N], // Spikes
-    output logic                                                done
+    input   logic                                                clk,
+    input   logic                                                reset,
+    input   logic                                                reset_iteration,
+    input   logic                                                start,
+    input   logic         [5:0]                                  index,
+    input   logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] pot_thresh_diff,
+    output  logic                                                spike_flg, // Spike happened if = 1;
+    output  logic         [5:0]                                  spike_pos,
+    output  logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] o_spike[N], // Spikes
+    output  logic                                                done
 );
     integer i;
     logic        [5:0]                                  max_pos;

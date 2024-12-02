@@ -19,7 +19,6 @@ module learn_rule #(
     output logic                                                done
 );
 
-    logic                                               overflow;
     logic         [5:0]                                 index;
     logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0] mult_result;
     logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0] eta_dt;
@@ -35,24 +34,15 @@ module learn_rule #(
             done   <= 0;
             index  <= 0;
             upd_ws <= 0;
+            o_ws   <= '{default: '0};
         end
         else if (start) begin
-            upd_ws <= mult_result + i_ws;
-            index  <= index  + 1;
-            done   <= 1;
+            upd_ws      <= mult_result + i_ws;
+            o_ws[index] <= mult_result + i_ws;
+            index       <= index  + 1;
+            done        <= 1;
         end
         else done <= 0;
-    end
-
-    always_ff @(posedge clk) begin
-        if (reset || reset_iteration) begin
-            o_ws <= '{default: '0};
-        end
-        else begin
-            if (start) begin
-                o_ws[index] <= mult_result + i_ws;
-            end
-        end
     end
 
      fixed_point_mult #(
@@ -101,7 +91,7 @@ module learn_rule #(
         .a(o_spike_f_dec),
         .b(eta_dt),
         .result(mult_result),
-        .overflow(overflow)
+        .overflow()
     );
 
 

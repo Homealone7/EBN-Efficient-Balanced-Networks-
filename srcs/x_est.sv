@@ -1,22 +1,22 @@
 module x_est #(
     parameter N                 = 64,
     parameter Dims              = 2,
-    parameter Lambda            = 16'h A000,
-    parameter One               = 16'h 1000,
-    parameter dt                = 16'h 68DB,
-    parameter INTEGER_BITS      = 5,
-    parameter FRACTIONAL_BITS   = 11
+    parameter Lambda            = 40'h A00000000,
+    parameter One               = 40'h 100000000,
+    parameter dt                = 40'h 68DB8,
+    parameter INTEGER_BITS      = 8,
+    parameter FRACTIONAL_BITS   = 32
 )(
-    input  logic                                                clk,
-    input  logic                                                reset,
-    input  logic                                                reset_iteration,
-    input  logic                                                start,
-    input  logic                                                spike_flg,
-    input  logic         [5:0]                                  spike_pos,
-    input  logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_dec       [Dims * N],    // Decoder
-    input  logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_x_est     [Dims],        // Estimated X from MEM
-    output logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] o_x_est     [Dims],
-    output logic                                                done
+    input   logic                                                clk,
+    input   logic                                                reset,
+    input   logic                                                reset_iteration,
+    input   logic                                                start,
+    input   logic                                                spike_flg,
+    input   logic         [5:0]                                  spike_pos,
+    input   logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_dec       [Dims * N],    // Decoder
+    input   logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_x_est     [Dims],        // Estimated X from MEM
+    output  logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] o_x_est     [Dims],
+    output  logic                                                done
 );
 
     logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0] x1_est_leak;

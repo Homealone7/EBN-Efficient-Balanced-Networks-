@@ -30,7 +30,7 @@ module fixed_point_matrix_mult_start #(
     );
 
     always_ff @(posedge clk) begin
-        if (reset) begin
+        if (reset || reset_iteration) begin
             // Reset logic
             done <= 0;
             i <= 0;

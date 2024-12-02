@@ -19,14 +19,13 @@ module synaptic_core #(
     output logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] o_ws       [N],        // Slow Weights
     output logic                                                done 
 );
-
+    // increase read enable cycles to 64 instead of 63
     logic                                               write_en;
     logic                                               read_en;
     logic                                               done_learn;
     logic                                               start;
     logic         [11:0]                                read_addr;
     logic         [11:0]                                write_addr;
-    logic         [11:0]                                read_addr_buff;
     logic         [5:0]                                 index_ws;
     logic         [5:0]                                 index_spike_f;
     logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0] dec_t [Dims];
@@ -34,8 +33,8 @@ module synaptic_core #(
     logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0] spike_f_tmp;
     logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0] upd_ws;
     
-    assign read_en  = (!learn_en)? 1'b0 : (delay_counter == 0 || delay_counter == 1 || delay_counter == 66)? 1'b0 : 1'b1;
-    assign write_en = done_learn;
+    assign read_en  = (!learn_en)? 1'b0 : (delay_counter == 0 || delay_counter == 1)? 1'b0 : 1'b1;
+    assign write_en = (!learn_en)? 1'b0 : (delay_counter == 0 || delay_counter == 1 || delay_counter == 2  || delay_counter == 3  || delay_counter == 4)? 1'b0 : 1'b1;
 
     /////////////// Output ///////////////
     always_ff @(posedge clk) begin
@@ -54,14 +53,16 @@ module synaptic_core #(
             index_ws      <= 0;
             index_spike_f <= 0;
             read_addr     <= 0;
+            write_addr    <= 0;
             start         <= 0;
             spike_f_tmp   <= 0;
             dec_t         <= '{default : '0};
         end
         else begin
             if (learn_en) begin
-                if (delay_counter != 0 && delay_counter != 1 && delay_counter != 66) read_addr   <= read_addr + 1;
-                if (delay_counter == 2) begin
+                if (delay_counter != 0 && delay_counter != 1 && delay_counter != 66 && delay_counter != 67) read_addr   <= read_addr + 1;
+                if (delay_counter != 0 && delay_counter != 1 && delay_counter != 2 && delay_counter != 3)  write_addr   <= write_addr + 1;
+                if (delay_counter == 3) begin
                     start           <= 1;
                     index_ws        <= 1;
                     index_spike_f   <= index_spike_f + 1;
@@ -70,10 +71,10 @@ module synaptic_core #(
                     dec_t[1]        <= i_dec[64];
                 end
                 else begin
-                    if (delay_counter >= N + 2) begin
+                    if (delay_counter >= N + 3) begin
                         start       <= 0;
                     end
-                    if (delay_counter != 0 && delay_counter != 1 && delay_counter != 66) begin
+                    if (delay_counter != 0 && delay_counter != 1 && delay_counter != 2 && delay_counter != 67) begin
                         index_ws    <= index_ws + 1;
                         dec_t[0]    <= i_dec[index_ws];
                         dec_t[1]    <= i_dec[index_ws + 64];
@@ -104,18 +105,6 @@ module synaptic_core #(
         .done(done_learn)
     );    
     
-    /////////////// Wirte Addr & Slow Weights Output ///////////////
-    always_ff @(posedge clk) begin
-        if (reset || reset_iteration) begin
-            write_addr      <= 0;
-            read_addr_buff  <= 0;
-        end
-        else begin
-            read_addr_buff <= read_addr;
-            write_addr     <= read_addr_buff; 
-        end       
-    end
-
     /////////////// Slow Weights Memory ///////////////
     Synaptic_Memory u_synaptic_mem (
         .clka(clk),    // input wire clka

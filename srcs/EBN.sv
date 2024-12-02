@@ -1,5 +1,5 @@
 module EBN #(
-    parameter N                 = 64,
+    /*parameter N                 = 64,
     parameter Dims              = 2,
     parameter dyn               = 16'h 8000,
     parameter NzMemb            = 16'h 68DB,
@@ -16,12 +16,36 @@ module EBN #(
     parameter INTEGER_BITS      = 4,
     parameter FRACTIONAL_BITS   = 12,
     parameter A_ROWS            = 1,
+    parameter B_COLS            = 1*/
+    parameter N                 = 64,
+    parameter Dims              = 2,
+    parameter NzMemb            = 40'h 68DB8,
+    parameter Gain_D            = 40'h 2000000,
+    parameter K                 = 40'h 20C49B,
+    parameter LambdaV           = 40'h 3200000000,
+    parameter Lambda            = 40'h A00000000,
+    parameter dyn               = 40'h 800000000,
+    parameter One               = 40'h 100000000,
+    parameter Three             = 40'h 300000000,
+    parameter Eta_W             = 40'h 4CCCCCCC, //learning rate
+    parameter dt                = 40'h 68DB8,
+    parameter learn_thresh      = 1006,
+    parameter learn_flg         = 1,
+    parameter INTEGER_BITS      = 8,
+    parameter FRACTIONAL_BITS   = 32,
+    parameter A_ROWS            = 1,
     parameter B_COLS            = 1
 ) (
-    input  logic                                                 clk,
-    input  logic                                                 reset,
-    input  logic                                                 init_signal,
-    output logic                                                 spike_flg,
+    input  logic                                                clk,
+    input  logic                                                reset,
+    input  logic                                                init_signal,
+    output logic                                                spike_flg_out,
+    output logic         [5:0]                                  spike_pos_out,
+    output logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] o_x_0,
+    output logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] o_x_1,
+    output logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] o_x_est_0,
+    output logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] o_x_est_1,
+    output logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] o_pot,
     output logic                                                 done
 );
 
@@ -29,7 +53,7 @@ module EBN #(
         Design running at 50MHz, longest path in synaptic core learn module, can pipeline the multiplications (add 1 or 2 ff to run at faster freq)
     */
     integer i;
-
+    
     // Signals from controller
     logic        [11:0]                                 delay_counter;
     logic                                               reset_iteration;
@@ -58,6 +82,7 @@ module EBN #(
     // Signals from Nueron_core
     logic        [5:0]                                  spike_out_index;
     logic        [5:0]                                  spike_pos;
+    logic                                               spike_flg;
     logic                                               done_lif_AU; 
     logic                                               done_neuron;
     logic                                               done_spike;
@@ -69,25 +94,35 @@ module EBN #(
     logic                                               done_spike_f;
     
     // Signals from Desired_Dynamic
-    logic signed [INTEGER_BITS + FRACTIONAL_BITS - 1:0] o_err            [Dims];
+    logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] o_err       [Dims];
+    logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] o_x         [Dims];
+    logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] o_x_est     [Dims];
     logic                                               done_dyn; 
 
     // Signals for Spike_filter sync
     logic signed [INTEGER_BITS + FRACTIONAL_BITS - 1:0] spike_f_data     [N]; 
     logic                                               done_spike_f_buff;
-    
+    logic                                               done_spike_f_buff_2;
+
+    assign o_x_0 = o_x[0];
+    assign o_x_1 = o_x[1];
+    assign o_x_est_0 = o_x_est[0];
+    assign o_x_est_1 = o_x_est[1];
+    assign spike_flg_out = spike_flg;
+    assign spike_pos_out = spike_pos;
 
     always_ff @(posedge clk) begin
         if (reset || reset_iteration) begin
-            done               <= 0;
-            done_spike_f_buff  <= 0;
+            done_spike_f_buff   <= 0;
+            done_spike_f_buff_2 <= 0;
         end
         else begin
-            if (done_dyn) done <= 1;
-            else          done <= 0;
-            done_spike_f_buff  <= done_spike_f;
+            done_spike_f_buff   <= done_spike_f;
+            done_spike_f_buff_2 <= done_spike_f_buff;
         end
     end 
+    
+    assign done = done_dyn;
 
     // Instantiate the memory manager module
     memory_manager #(
@@ -122,6 +157,7 @@ module EBN #(
         .next_synaptic_update(next_ws),       // Signal from the neuron core indicating next synaptic update
         .neuron_processing_done(done_lif_AU), // Signal from neuron core indicating neuron processing is complete
         .done_spike(done_spike),              // Signal from neuron core indicating spike processing is complete
+        .done_dyn(done_dyn),
         .reset_iteration(reset_iteration),
         .load_trigger_cmd(load_trigger_cmd),
         .start_neuron(start_neuron),
@@ -158,6 +194,7 @@ module EBN #(
         .i_spike_f(spike_f_data),
         .pot_thresh(pot_thresh),
         .randn(randn),
+        .o_pot(o_pot),
         .spike_out_index(spike_out_index),
         .spike_pos(spike_pos),
         .spike_flg(spike_flg),
@@ -221,12 +258,14 @@ module EBN #(
         .clk(clk),
         .reset(reset),
         .reset_iteration(reset_iteration),
-        .start(done_spike_f_buff),
+        .start(done_spike_f_buff_2),
         .i_cmd(i_cmd),
         .i_dec(i_dec),
         .spike_pos(spike_pos),
         .spike_flg(spike_flg),
         .o_err(o_err),
+        .o_x(o_x),
+        .o_x_est(o_x_est),
         .done(done_dyn)
     );
 
@@ -242,7 +281,7 @@ module EBN #(
                 old_err[0]  <= o_err[0];
                 old_err[1]  <= o_err[1];
             end
-            if (done_spike_f_buff) begin
+            if (done_spike_f_buff_2) begin
                 for (i = 0; i < N; i++) begin
                     spike_f_data[i] <= (spike_flg && (i == spike_pos))? o_spike_f[i] + { {(INTEGER_BITS - 1){1'b0}}, 1'b1, {(FRACTIONAL_BITS){1'b0}} }: o_spike_f[i];
                 end

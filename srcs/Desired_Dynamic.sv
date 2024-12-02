@@ -13,22 +13,24 @@ module Desired_Dynamic #(
     input  logic                                                reset,
     input  logic                                                reset_iteration,
     input  logic                                                start,
-    input  logic         [5:0]                                  spike_pos,
     input  logic                                                spike_flg,
+    input  logic         [5:0]                                  spike_pos,
     input  logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_cmd       [Dims],        // Commands
     input  logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] i_dec       [Dims * N],    // Decoder
     output logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] o_err       [Dims],        // Calculation error
+    output logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] o_x         [Dims],
+    output logic signed  [INTEGER_BITS + FRACTIONAL_BITS - 1:0] o_x_est     [Dims],
     output logic                                                done
 );
 
     logic                                               done_est;
     logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0] i_x     [Dims];
     logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0] i_x_est [Dims];
-    logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0] o_x     [Dims];
-    logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0] o_x_est [Dims];
+    //logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0] o_x     [Dims];
+    //logic signed  [INTEGER_BITS + FRACTIONAL_BITS -1:0] o_x_est [Dims];
 
-    assign o_err[0] = (reset)? 0 : o_x[0] - o_x_est[0];
-    assign o_err[1] = (reset)? 0 : o_x[1] - o_x_est[1];
+    assign o_err[0] = o_x[0] - o_x_est[0];
+    assign o_err[1] = o_x[1] - o_x_est[1];
 
     always_ff @(posedge clk ) begin
         if (reset || reset_iteration) begin
