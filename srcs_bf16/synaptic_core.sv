@@ -7,6 +7,7 @@ module synaptic_core #(
 )(
     input  logic         clk,
     input  logic         reset,
+    input  logic         reset_iteration,
     input  logic         load_mem,
     input  logic         ws_start,
     input  logic         learn_en,
@@ -17,141 +18,126 @@ module synaptic_core #(
     output logic         done
 );
 
-    // FSM States
-    typedef enum logic [1:0] {
-        IDLE,
-        LOAD_INIT,    // Load first 64 entries of synaptic memory
-        LOAD_NEXT,    // Wait to load the next 64 entries
-        LEARN         // Learning mode
-    } state_t;
-
-    state_t current_state, next_state;
-
     // Internal signals
+    logic [5:0]   index;
     logic [5:0]   index_ws;
+    logic [5:0]   index_spike_f;
+    logic [6:0]   index_dec;
     logic [11:0]  read_addr;       // Read address goes from 0 to 4095
     logic [11:0]  write_addr;
     logic [15:0]  ws_data;
+    logic [15:0]  upd_ws;
+    logic [15:0]  test_ws[N];
+    logic [15:0]  spike_f;  
+    logic [15:0]  dec [Dims];
+    logic         ws_start_reg;
+    logic         start_learn;
+    logic         done_learn;
     logic         read_en;
     logic         write_en;
     logic         load_complete;
-    logic         loading_active;
+    logic         write_complete;
 
-    // State Register
-    always_ff @(posedge clk) begin
-        if (reset || reset_iteration) begin
-            current_state <= IDLE;
-        end
-        else begin
-            current_state <= next_state;
-        end
-    end
-
-    // State Transition Logic
-    always_comb begin
-        case (current_state)
-            IDLE: begin
-                if (ws_start) begin
-                    next_state = LOAD_NEXT;
-                end
-                else if (load_mem) begin
-                    next_state = LOAD_INIT;
-                end
-                else begin
-                    next_state = IDLE;
-                end
-            end
-            LOAD_INIT: begin
-                if (load_complete) begin
-                    next_state = IDLE;
-                end
-                else begin
-                    next_state = LOAD_INIT;
-                end
-            end
-            LOAD_NEXT: begin
-                if (!loading_active) begin
-                    next_state = IDLE;
-                end
-                else if (learn_en) begin
-                    next_state = LEARN;
-                end
-                else begin
-                    next_state = LOAD_NEXT;
-                end
-            end
-            LEARN: begin
-                if (!learn_en) begin
-                    next_state = IDLE; // Go back to IDLE when learning is off
-                end
-                else begin
-                    next_state = LEARN;
-                end
-            end
-            default: next_state = IDLE;
-        endcase
-    end
-
-    // Output Logic and Operations for Each State
+    // State management without FSM - keep track of control using signals
     always_ff @(posedge clk) begin
         if (reset || reset_iteration) begin
             // Reset internal variables
+            read_en        <= 0;
             index_ws       <= 0;
+            index          <= 0;
             read_addr      <= 0;
             write_addr     <= 0;
-            read_en        <= 0;
-            write_en       <= 0;
             done           <= 0;
             load_complete  <= 0;
-            loading_active <= 0;
+            write_complete <= 0;
+            spike_f        <= 0;
+            dec            <= '{default: '0};
+            o_ws           <= '{default: '0};
         end
         else begin
-            case (current_state)
-                LOAD_INIT: begin
-                    if (load_mem) begin
-                        // Start loading the first 64 entries
-                        read_en       <= 1;
-                        if (index_ws < N - 1) begin
-                            read_addr <= read_addr + 1;
-                            index_ws  <= index_ws + 1;
-                        end
-                        else begin
-                            read_en        <= 0;
-                            load_complete  <= 1; // Loading complete
-                            done           <= 1;
-                        end
-                    end
-                end
-                LOAD_NEXT: begin
-                    loading_active <= 1;  // Indicates that loading is in progress
-                    read_en        <= 1;
-                    // Continue loading until 64 entries are loaded
+            index_ws    <= index;
+            // Load initial 64 entries if load_mem is high
+            if (load_mem && !load_complete) begin
+                read_en <= 1;
+                if (read_en) begin
+                    o_ws[index_ws] <= ws_data;
                     if (index_ws < N - 1) begin
+                        read_addr      <= read_addr + 1;
+                        index          <= index + 1;
+                    end
+                    else begin
+                        load_complete <= 1;
+                        done          <= 1;
+                        read_en       <= 0;
+                        index         <= 0;
+                    end
+                end      
+            end
+            // Load next 64 entries if ws_start is high
+            else if ((ws_start || read_en) && !learn_en) begin
+                read_en        <= 1;
+                o_ws[index_ws] <= ws_data;
+                if (index_ws < N - 1) begin
+                    read_addr <= read_addr + 1;
+                    index <= index + 1;
+                end
+                else begin
+                    write_complete <= 1;
+                    done <= 1;
+                    read_en <= 0;
+                    index <= 0;
+                end
+            end
+            // Learning mode if learn_en is high
+            else if (learn_en) begin
+                dec[0]  <= i_dec[index_dec];
+                dec[1]  <= i_dec[index_dec + 1];
+                spike_f <= i_spike_f[index_spike_f];
+                if (done_learn) begin
+                    write_addr  <= write_addr + 1;
+                    o_ws[index] <= upd_ws;
+                    if (index < N - 1) begin
                         read_addr <= read_addr + 1;
-                        index_ws  <= index_ws + 1;
+                        index     <= index + 1;
                     end
                     else begin
-                        read_en        <= 0;
-                        done           <= 1; // Loading complete
-                        index_ws       <= 0; // Reset index_ws for the next loading cycle
-                        loading_active <= 0; // Loading is complete
+                        write_complete <= 0;
+                        done           <= 1;
+                        index          <= 0;
                     end
                 end
-                LEARN: begin
-                    // In learning mode, take output from learn submodule
-                    if (learn_en) begin
-                        write_en <= 1;
-                        // Logic for writing from the learn module
-                        // Assume learning submodule logic already updates write_addr and ws_data appropriately
-                    end
-                    else begin
-                        write_en <= 0;
-                    end
+            end
+               // Reset done and write_complete signals when idle
+            else begin
+                done <= 0;
+                write_complete <= 0;
+            end
+        end
+    end
+    always_ff @(posedge clk) begin
+        if (reset || reset_iteration) begin
+            index_spike_f  <= 0;
+            index_dec      <= 0;
+            start_learn    <= 0;
+        end
+        else begin
+            if (learn_en && ws_start) begin
+                start_learn <= 1;
+            end
+            if (start_learn) begin
+                if (index_dec == 126) begin
+                    start_learn   <= 0;
+                    index_dec     <= 0;
+                    index_spike_f <= index_spike_f + 1;
                 end
-            endcase
+                else begin
+                    index_dec <= index_dec + 2;         
+                end
+            end
         end
     end
 
+    assign write_en  = done_learn;
     // Instantiate learn_rule
     learn_rule #(
         .N(N),
@@ -161,15 +147,15 @@ module synaptic_core #(
     ) learn_calc (
         .clk(clk),
         .reset(reset),
-        .reset_iteration(1'b0), // Assuming iteration reset logic is separate
-        .start(ws_start),
-        .dec(i_dec),
+        .reset_iteration(reset_iteration),
+        .start(start_learn),
+        .dec(dec),
         .i_err(i_err),
         .i_ws(ws_data),
-        .i_spike_f(i_spike_f[0]), // Example spike input
-        .upd_ws(ws_data), // Example updated weight output
-        .o_ws(o_ws),
-        .done(done)
+        .i_spike_f(spike_f), // spike input
+        .upd_ws(upd_ws),          // updated weight output
+        .test_ws(test_ws),
+        .done(done_learn)
     );
 
     // Instantiate Synaptic_Memory
@@ -178,7 +164,7 @@ module synaptic_core #(
         .ena(write_en),
         .wea(write_en),
         .addra(write_addr),
-        .dina(ws_data),
+        .dina(upd_ws),
         .clkb(clk),
         .enb(read_en),
         .addrb(read_addr),

@@ -13,7 +13,7 @@ module learn_rule #(
     input  logic [15:0] i_spike_f,           // Filtered Spike
     input  logic [15:0] i_ws,                // Slow Weight from MEM
     output logic [15:0] upd_ws,              // Updated Slow Weight
-    output logic [15:0] o_ws   [N],          // Updated Slow Weight
+    output logic [15:0] test_ws   [N],          // Updated Slow Weight
     output logic        done
 );
 
@@ -31,11 +31,11 @@ module learn_rule #(
             done   <= 0;
             index  <= 0;
             upd_ws <= 0;
-            o_ws   <= '{default: '0};
+            test_ws   <= '{default: '0};
         end
         else if (start) begin
             upd_ws      <= add_result;
-            o_ws[index] <= add_result;
+            test_ws[index] <= add_result;
             index       <= index  + 1;
             done        <= 1;
         end

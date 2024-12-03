@@ -104,7 +104,7 @@ module neuron_core #(
             randn_tmp   <= randn[randn_index];
             dec[0]      <= i_dec[dec_index];
             dec[1]      <= i_dec[dec_index + 1];
-            if (done_lif_AU) begin
+            if (next) begin
                 if (dec_index == 126) begin
                     dec_index   <= 0;
                     randn_index <= 0;

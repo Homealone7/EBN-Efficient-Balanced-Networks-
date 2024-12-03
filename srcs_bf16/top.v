@@ -43,7 +43,7 @@ module top(
             if (reset_iteration) begin
                 iteration_counter <= iteration_counter + 1;
             end
-            if (iteration_counter >= 100) begin
+            if (iteration_counter >= 1) begin
                 learn_flg <= 0;
             end
         end
