@@ -11,10 +11,10 @@ module synaptic_core #(
     input  logic         load_mem,
     input  logic         ws_start,
     input  logic         learn_en,
-    input  logic [15:0]  i_dec      [Dims * N],
-    input  logic [15:0]  i_err      [Dims],
-    input  logic [15:0]  i_spike_f  [N],
-    output logic [15:0]  o_ws       [N],
+    input  logic [31:0]  i_dec      [Dims * N],
+    input  logic [31:0]  i_err      [Dims],
+    input  logic [31:0]  i_spike_f  [N],
+    output logic [31:0]  o_ws       [N],
     output logic         done
 );
 
@@ -25,11 +25,11 @@ module synaptic_core #(
     logic [6:0]   index_dec;
     logic [11:0]  read_addr;       // Read address goes from 0 to 4095
     logic [11:0]  write_addr;
-    logic [15:0]  ws_data;
-    logic [15:0]  upd_ws;
-    logic [15:0]  test_ws[N];
-    logic [15:0]  spike_f;  
-    logic [15:0]  dec [Dims];
+    logic [31:0]  ws_data;
+    logic [31:0]  upd_ws;
+    logic [31:0]  spike_f;  
+    logic [31:0]  dec [Dims];
+    logic         learn_state;
     logic         ws_start_reg;
     logic         start_learn;
     logic         done_learn;
@@ -38,6 +38,8 @@ module synaptic_core #(
     logic         load_complete;
     logic         write_complete;
 
+    assign learn_state = (ws_start || start_learn) && learn_en;
+    assign write_en  = done_learn;
     // State management without FSM - keep track of control using signals
     always_ff @(posedge clk) begin
         if (reset || reset_iteration) begin
@@ -46,12 +48,9 @@ module synaptic_core #(
             index_ws       <= 0;
             index          <= 0;
             read_addr      <= 0;
-            write_addr     <= 0;
             done           <= 0;
             load_complete  <= 0;
             write_complete <= 0;
-            spike_f        <= 0;
-            dec            <= '{default: '0};
             o_ws           <= '{default: '0};
         end
         else begin
@@ -89,22 +88,22 @@ module synaptic_core #(
                 end
             end
             // Learning mode if learn_en is high
-            else if (learn_en) begin
-                dec[0]  <= i_dec[index_dec];
-                dec[1]  <= i_dec[index_dec + 1];
-                spike_f <= i_spike_f[index_spike_f];
-                if (done_learn) begin
-                    write_addr  <= write_addr + 1;
-                    o_ws[index] <= upd_ws;
+            else if (learn_state || write_en) begin
+                o_ws[index_ws] <= upd_ws;
+                if (learn_state) begin
+                    read_en   <= 1;
                     if (index < N - 1) begin
                         read_addr <= read_addr + 1;
-                        index     <= index + 1;
                     end
-                    else begin
+                    if (index == N - 1) begin
+                        read_en        <= 0; 
                         write_complete <= 0;
                         done           <= 1;
                         index          <= 0;
                     end
+                    else if (start_learn) begin
+                        index     <= index + 1;
+                    end 
                 end
             end
                // Reset done and write_complete signals when idle
@@ -117,27 +116,35 @@ module synaptic_core #(
     always_ff @(posedge clk) begin
         if (reset || reset_iteration) begin
             index_spike_f  <= 0;
+            write_addr     <= 0;
             index_dec      <= 0;
             start_learn    <= 0;
+            spike_f        <= 0;
+            dec            <= '{default: '0};
         end
         else begin
+            dec[0]  <= i_dec[index_dec];
+            dec[1]  <= i_dec[index_dec + 1];
+            spike_f <= i_spike_f[index_spike_f];
+            if (done_learn) begin
+                write_addr  <= write_addr + 1;
+            end
             if (learn_en && ws_start) begin
                 start_learn <= 1;
             end
-            if (start_learn) begin
-                if (index_dec == 126) begin
+            if (learn_state) begin
+                if (index == 63) begin
                     start_learn   <= 0;
                     index_dec     <= 0;
-                    index_spike_f <= index_spike_f + 1;
+                    index_spike_f <= 0;
                 end
                 else begin
+                    index_spike_f <= index_spike_f + 1;
                     index_dec <= index_dec + 2;         
                 end
             end
         end
     end
-
-    assign write_en  = done_learn;
     // Instantiate learn_rule
     learn_rule #(
         .N(N),
@@ -154,7 +161,6 @@ module synaptic_core #(
         .i_ws(ws_data),
         .i_spike_f(spike_f), // spike input
         .upd_ws(upd_ws),          // updated weight output
-        .test_ws(test_ws),
         .done(done_learn)
     );
 
