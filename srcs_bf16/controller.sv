@@ -4,16 +4,16 @@ module controller #(
 )(
     input  logic        clk,
     input  logic        reset,
-    input  logic        init_signal,
-    input  logic        load_complete,
+    input  logic        init_signal,            // EBN start Signal
+    input  logic        load_complete,          // Inital mem loading completed
     input  logic        learn_flg,              // Flag to enable or disable learning
     input  logic        next_synaptic_update,   // Signal to start the next synaptic update
     input  logic        neuron_processing_done, // Done signal from LIF in neuron_core
-    input  logic        done_dyn,
+    input  logic        done_dyn,               // One system cycle done
     input  logic        done_spike,             // Done signal from spike processing
     output logic        reset_iteration,        // Internal Reset Signal
-    output logic        load_mem,
-    output logic        load_trigger_cmd,       // Command load trigger
+    output logic        load_mem,               // initial load_mem signal
+    output logic        load_trigger_cmd,       // Random Command load trigger
     output logic        start_neuron,           // Start Nueron Core
     output logic        learn_en,               // Enable learning process       
     output logic        start_spike_filter,     // Start signal for spike filtering

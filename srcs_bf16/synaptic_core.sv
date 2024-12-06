@@ -11,10 +11,10 @@ module synaptic_core #(
     input  logic         load_mem,
     input  logic         ws_start,
     input  logic         learn_en,
-    input  logic [31:0]  i_dec      [Dims * N],
-    input  logic [31:0]  i_err      [Dims],
-    input  logic [31:0]  i_spike_f  [N],
-    output logic [31:0]  o_ws       [N],
+    input  logic [15:0]  i_dec      [Dims * N],
+    input  logic [15:0]  i_err      [Dims],
+    input  logic [15:0]  i_spike_f  [N],
+    output logic [15:0]  o_ws       [N],
     output logic         done
 );
 
@@ -25,10 +25,10 @@ module synaptic_core #(
     logic [6:0]   index_dec;
     logic [11:0]  read_addr;       // Read address goes from 0 to 4095
     logic [11:0]  write_addr;
-    logic [31:0]  ws_data;
-    logic [31:0]  upd_ws;
-    logic [31:0]  spike_f;  
-    logic [31:0]  dec [Dims];
+    logic [15:0]  ws_data;
+    logic [15:0]  upd_ws;
+    logic [15:0]  spike_f;  
+    logic [15:0]  dec [Dims];
     logic         learn_state;
     logic         ws_start_reg;
     logic         start_learn;

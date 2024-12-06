@@ -1,14 +1,14 @@
 module top(
     input clk,
     input reset_high,        
-    input axi_tready,
     output spike_flg_out,
-    output done,
-    output reg [31:0] axi_tdata,   
-    output reg axi_tvalid,          // Data valid signal for AXI DMA
-    output reg axi_tlast  
+    output done
 );
     // Internal signals
+    reg [31:0] axi_tdata;
+    reg axi_tvalid;
+    reg axi_tlast;
+    wire axi_tready = 1;
     wire [5:0]  spike_pos_out;
     wire [15:0] o_x_0;
     wire [15:0] o_x_1;
