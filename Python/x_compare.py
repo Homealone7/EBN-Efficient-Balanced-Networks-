@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 
 # Load the data from the output text file
-filename = 'x_100.txt'
+filename = 'x_it_100.txt'
 data = []
 
 with open(filename, 'r') as file:

@@ -17,4 +17,4 @@ def bin_txt_to_coe(input_file, output_file, radix=2):
                 f.write(";\n")  # Semicolon to end the vector
 
 # Example usage:
-bin_txt_to_coe("x_bf16.txt", "x_bf16.coe", radix=2)
+bin_txt_to_coe("x_fp32.txt", "x_fp32.coe", radix=2)
